@@ -37,6 +37,7 @@ def accum_log(log, new_logs):
         log[key] = old_value + new_value
     return log
 
+# Trainer inspired by CT-CLIP (https://github.com/ibrahimethemhamamci/CT-CLIP)
 class CIRCLETrainer(nn.Module):
     def __init__(
         self,

@@ -36,7 +36,7 @@ class CIRCLEDataset(Dataset):
         self.image_to_center = self.get_lung_center(lung_center_csv)
         self.image_to_text = self.load_report_text(report_csv)
         self.samples = self.prepare_samples()
-        print('--------------- {} ----------------'.format(len(self.samples)))
+        print('--------------- num of sample: {} ----------------'.format(len(self.samples)))
 
     def get_lung_center(self, center_csv):
         df = pd.read_csv(center_csv)
