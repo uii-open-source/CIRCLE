@@ -1,32 +1,46 @@
 import math
-import os
-import torch
-import pandas as pd
 import numpy as np
+import os
+import pandas as pd
+import SimpleITK as sitk
+import torch
 from torch.utils.data import Dataset
 
-from md import Frame3d
-from md.mdmath.python.math_tools import uniform_sample_point_from_unit_sphere
-from md.mdmath.python.rotation3d import axis_angle_to_rotation_matrix
-import md.image3d.python.image3d_io as cio
-import md.image3d.python.image3d_tools as ctools
+from train.utils import axis_angle_to_rotation_matrix, uniform_sample_point_from_unit_sphere
 
 
-def crop_image(im, crop_center, crop_spacing, crop_size, crop_axes=None):
-    frame = Frame3d()
-    frame.set_origin(crop_center)
-    frame.set_spacing(crop_spacing)
-    if crop_axes is None:
-        frame.set_axes_to_rai()
-    else:
-        frame.set_axes(crop_axes)
+def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
+    direction = []
+    for col in range(3):
+        for row in range(3):
+            direction.append(float(axes[col][row]))
 
-    crop_size = np.array(crop_size)
-    crop_origin = frame.voxel_to_world(-crop_size / 2.0)
-    frame.set_origin(crop_origin)
+    offset = [0.0, 0.0, 0.0]
+    for dim in range(3):
+        half_len = (crop_size[dim] - 1) * spacing[dim] / 2.0
+        for axis in range(3):
+            offset[axis] += half_len * axes[dim][axis]
+    origin = [float(center[i] - offset[i]) for i in range(3)]
 
-    crop = ctools.resample_trilinear(im, frame, crop_size, default_value=-1024)
-    return crop
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetReferenceImage(image)
+    resampler.SetSize([int(s) for s in crop_size])
+    resampler.SetOutputSpacing([float(s) for s in spacing])
+    resampler.SetOutputOrigin(origin)
+    resampler.SetOutputDirection(direction)
+    resampler.SetDefaultPixelValue(float(default_value))
+    resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetTransform(sitk.Transform())
+
+    output_image = resampler.Execute(image)
+    return output_image
+
+
+def intensity_normalize(img_data, mean, stddev, clip=False):
+    img_data = ((img_data + mean) / stddev).astype(np.float32)
+    if clip:
+        img_data = np.clip(img_data, -1.0, 1.0)
+    return img_data
 
 
 class CIRCLEDataset(Dataset):
@@ -87,15 +101,15 @@ class CIRCLEDataset(Dataset):
         return len(self.samples)
 
     def prepare_image(self, img_path, crop_center):
-        rot_prob = 0.5
+        rot_prob = 0
         rot_angle_degree = 10
 
-        scale_prob = 0.5
+        scale_prob = 0
         scale_isotropic = True
         scale_min_ratio = 0.95
         scale_max_ratio = 1.05
 
-        shift_prob = 0.5
+        shift_prob = 0
         shift_mm = 20.0
 
         mean = 0
@@ -104,7 +118,6 @@ class CIRCLEDataset(Dataset):
 
         crop_size = np.array([300, 300, 160])
         crop_spacing = np.array([1.0, 1.0, 2.0])
-        img = cio.read_image(img_path, dtype=np.float32)
 
         crop_axes = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.double)
         crop_scale_ratio = np.array([1.0, 1.0, 1.0])
@@ -130,10 +143,13 @@ class CIRCLEDataset(Dataset):
             if shift_flag:
                 shift = np.random.uniform(-shift_mm, shift_mm, (3,))
                 crop_center += shift
-        cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
-        ctools.intensity_normalize(cropped_img, mean, stddev, clip)
 
-        cropped_img = torch.from_numpy(cropped_img.to_numpy())
+        img = sitk.ReadImage(img_path)
+        cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
+        cropped_img = sitk.GetArrayFromImage(cropped_img)
+        cropped_img = intensity_normalize(cropped_img, mean, stddev, clip)
+
+        cropped_img = torch.from_numpy(cropped_img)
         cropped_img = torch.unsqueeze(cropped_img, 0)
         cropped_img = cropped_img.float()
         return cropped_img

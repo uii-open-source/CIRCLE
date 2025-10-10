@@ -9,10 +9,10 @@ text_encoder = BertModel.from_pretrained("/data/circle/models/nlp_roberta_backbo
 
 
 circle_model = CIRCLE(
-    text_encoder = text_encoder,
-    dim_image = 1792,
-    dim_text = 768,
-    dim_latent = 512,
+    text_encoder=text_encoder,
+    dim_image=1792,
+    dim_text=768,
+    dim_latent=512,
 )
 
 trainer = CIRCLETrainer(
@@ -22,12 +22,12 @@ trainer = CIRCLETrainer(
     label_csv='/label.csv',
     lung_center_csv='/lung_center.csv',
     report_csv='/report.csv',
-    num_train_steps = 200001,
-    batch_size = 5,
+    num_train_steps=200001,
+    batch_size=5,
     results_folder="/results",
-    num_workers = 6,
-    save_results_every = 1000,
-    save_model_every = 1000
+    num_workers=6,
+    save_results_every=1000,
+    save_model_every=1000
 )
 
 trainer.train()
