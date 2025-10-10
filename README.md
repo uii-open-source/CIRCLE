@@ -28,7 +28,7 @@ The overall structure of the CIRCLE-ZS2K dataset is organized as follows:
 | Directory               | Content |
 |-------------------------|---------|
 | CIRCLE-ZS2K/image/...   | 2,000 sample CT scans in each subdirectory, numbered from 0001 to 2000. Each case includes a non-contrast CT image stored in the NIfTI format (CT.nii.gz). |
-| CIRCLE/report/...       | The file report.csv comprises three columns: <br> **image_name**: identifies each case by its corresponding number (1–2000). <br> **finding**: describes the imaging observations in Chinese, including anatomical and pathological findings from the non-contrast CT scan, as reviewed by senior radiologists. <br> **impression**: provides the diagnostic conclusion in Chinese, also validated by senior radiologists. |
+| CIRCLE-ZS2K/report/...       | The file report.csv comprises three columns: <br> **image_name**: identifies each case by its corresponding number (1–2000). <br> **finding**: describes the imaging observations in Chinese, including anatomical and pathological findings from the non-contrast CT scan, as reviewed by senior radiologists. <br> **impression**: provides the diagnostic conclusion in Chinese, also validated by senior radiologists. |
 
 _**Example (Index 0002)**_
 
