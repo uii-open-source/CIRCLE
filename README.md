@@ -15,11 +15,11 @@ For details on the training of CIRCLE models, please navigate to [train](train).
 
 _**Access**_
 
-We randomly selected 2,000 cases from our internal validation set for open release, including both images and their corresponding reports (CIRCLE-ZS2K dataset), which can be publicly accessed via [Hugging Face repository](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K). At the present stage, ​​it is mandatory to​​ contact the CIRCLE collaborators ​​prior to​​ any academic publication that utilizes this dataset. The use of CIRCLE-ZS2K dataset for any commercial purposes ​​is strictly prohibited​​.
+We randomly selected 2,000 cases from our internal validation set for open release, including both images and their corresponding reports (CIRCLE-ZS2K dataset), which can be publicly accessed via [Hugging Face repository](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K). 
 
 _**Copyright, usage, and ethical considerations**_
 
-The CIRCLE-ZS2K dataset is an example dataset associated with a related publication. The corresponding manuscript is currently under submission, and we plan to release a larger-scale version of the dataset—subject to obtaining further ethical approvals and administrative permissions—if feasible. The CIRCLE collaborators consider the protection of patient interests and privacy to be of utmost importance. Accordingly, all personally identifiable information contained in the dataset has been anonymized.
+The CIRCLE-ZS2K dataset is an example dataset associated with a related publication. The corresponding manuscript is currently under submission, and we plan to release a larger-scale version of the dataset—subject to obtaining further ethical approvals and administrative permissions—if feasible. The CIRCLE collaborators consider the protection of patient interests and privacy to be of utmost importance. Accordingly, all personally identifiable information contained in the dataset has been anonymized. At the present stage, ​​it is mandatory to​​ contact the CIRCLE collaborators ​​prior to​​ any academic publication that utilizes this dataset. The use of CIRCLE-ZS2K dataset for any commercial purposes ​​is strictly prohibited​​.
 
 _**Structure**_
 
