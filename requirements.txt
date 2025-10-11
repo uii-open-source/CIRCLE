@@ -1,0 +1,7 @@
+torch
+SimpleITK
+pandas
+numpy
+accelerate
+transformers
+einops
