@@ -61,8 +61,8 @@ class CIRCLE(nn.Module):
         self.to_image_latent = nn.Linear(dim_image, dim_latent, bias=False)
         self.to_text_latent = nn.Linear(dim_text, dim_latent, bias = False)
 
-        self.temperature = nn.Parameter(torch.ones([]) * np.log(10))
-        self.bias = nn.Parameter(torch.ones([]) * (-10))
+        self.temperature = nn.Parameter(torch.ones(1) * np.log(10))
+        self.bias = nn.Parameter(torch.ones(1) * (-10))
 
         self.cls_loss_fn = nn.BCEWithLogitsLoss()
 
