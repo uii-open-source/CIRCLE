@@ -115,6 +115,7 @@ Here, we provide an example report（*Index 0002*）from the open-source dataset
 - `figures/`: figures in README.
 - `model/`: main CIRCLE model combining image and text encoders for multi-modal learning.
 - `train/`: training codes for CIRCLE model.
+- `test/`: evaluation reproduction codes for CIRCLE model.
 
 ## Installation
 Clone this repo.
@@ -314,3 +315,10 @@ python test/run_knn.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder -
 After testing, the saved csv file contains two columns:
 - The first column is the test image name.
 - The second column corresponds to the prediction probabilities of abnormal patients.
+
+## License
+All components of CIRCLE, including the released models and datasets, are made available under the Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license.
+This licensing framework allows free use of our work for non-commercial research purposes, while ensuring that:
+- Proper attribution is given to the original work.
+- Any modifications or derivative works are distributed under the same license terms.
+- Commercial use of the released models or datasets is not permitted without explicit authorization.
