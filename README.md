@@ -317,7 +317,7 @@ After testing, the saved csv file contains two columns:
 - The second column corresponds to the prediction probabilities of abnormal patients.
 
 ## License
-All components of CIRCLE, including the released models and datasets, are made available under the Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license.
+All components of CIRCLE, including the released models and datasets, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license] (https://creativecommons.org/licenses/by-nc-sa/4.0/).
 This licensing framework allows free use of our work for non-commercial research purposes, while ensuring that:
 - Proper attribution is given to the original work.
 - Any modifications or derivative works are distributed under the same license terms.
