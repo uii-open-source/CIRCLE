@@ -5,6 +5,9 @@
 <p align="center">
     <img src="figures/logo.jpg" width="85%"/>
 <p>
+<p align="center">
+    <img src="figures/logo2.jpg" width="85%"/>
+<p>
 
 <p align="center">
         💜 <a href="https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K"><b>CIRCLE Dataset</b></a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/xxx">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
