@@ -73,32 +73,18 @@ The CIRCLE-ZS2K dataset contains two folders, and the details are shown as follo
 ```
 `CIRCLE-ZS2K/image/...` contains 2,000 sample CT scans in each subdirectory, numbered from 0001 to 2000. Each case includes a non-contrast CT image stored in the NIfTI format (CT.nii.gz). 
 
-`lung_center.csv` contains four columns:
+`CIRCLE-ZS2K/label/...` contains four CSV files:
 
-- The first column is the image name.
 
-- The next three columns represent the x, y, and z world coordinates of the crop center.
-In our experiments, the crop center corresponds to the center of the lungs.
+| **File Name** | **Description** |
+|----------------|-----------------|
+| **`lung_center.csv`** | The first column is the image name. The next three columns represent the x, y, and z world coordinates of the crop center. In our experiments, the crop center corresponds to the center of the lungs. |
+| **`CIRCLE_chest37.csv`** | The first column is the image name. The next 37 columns correspond to the labels of 37 thoracic abnormalities, automatically extracted from reports using our proposed CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding. |
+| **`CIRCLE_chest10.csv`** | The first column is the image name. The next 10 columns correspond to the labels of 10 abnormalities in downstream tasks, automatically extracted from reports using the CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding. |
+| **`CIRCLE_chest_screening.csv`** | The first column is the image name. The next column corresponds to the patient-level screening label, automatically extracted from reports using the CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding. |
 
-`CIRCLE_chest37.csv` contains 38 columns:
 
-- The first column is the image name.
-
-- The next 37 columns correspond to the labels of 37 thoracic abnormalities, which were automatically extracted from reports using our proposed CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding.
-
-`CIRCLE_chest10.csv` contains 11 columns:
-
-- The first column is the image name.
-
-- The next 10 columns correspond to the labels of 10 abnormalities in downstream tasks, which were automatically extracted from reports using our proposed CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding.
-  
-`CIRCLE_chest_screening.csv` contains 2 columns:
-
-- The first column is the image name.
-
-- The next column correspond to the labels of abnormal patients, which were automatically extracted from reports using our proposed CIRCLE-labeler. A value of 1 indicates a positive finding, while 0 indicates a negative finding.
-
-The file `report.csv` contains structured radiology report information with three columns:
+The file `report.csv` in `CIRCLE-ZS2K/report/...` contains structured radiology report information with three columns:
 | **Column**       | **Description**                                                                                                                                                   |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`image_name`** | Identifies each case by its corresponding number *(1–2000)*.                                                                                                      |
