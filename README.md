@@ -5,9 +5,6 @@
 <p align="center">
     <img src="figures/logo.jpg" width="85%"/>
 <p>
-<p align="center">
-    <img src="figures/logo2.jpg" width="85%"/>
-<p>
 
 <p align="center">
         💜 <a href="https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K"><b>CIRCLE Dataset</b></a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/xxx">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
@@ -27,6 +24,9 @@ Developed through a collaboration between eight Chinese hospitals and United Ima
 * **Clinical Validation**:​​ Clinical validation shows that CIRCLE effectively collaborates with radiology residents, reducing diagnostic errors and improving reading efficiency.
 <p align="center">
   <img src="figures/circle.png" width="85%">
+</p>
+<p align="center">
+  <img src="figures/circle2.png" width="85%">
 </p>
 
 ## News
