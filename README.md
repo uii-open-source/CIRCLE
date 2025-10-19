@@ -22,7 +22,10 @@ Developed through a collaboration between eight Chinese hospitals and United Ima
 * **Unsurpervised Image-report Alignment**:​​ The core architecture is based on a vision-language pre-training approach that uses contrastive learning to align CT image features with corresponding radiology report text. ​
 * **SOTA Performance**:​ CIRCLE demonstrates high competence in automatically extracting labels for 37 abnormalities from unstructured reports (F1-score: 0.99) and achieves state-of-the-art performance in population-level screening (Image-wise Volume-wise Curve - Area Under the Curve, IVC-AUC: 0.938). 
 * **Clinical Validation**:​​ Clinical validation shows that CIRCLE effectively collaborates with radiology residents, reducing diagnostic errors and improving reading efficiency.
-<p align="center"><img src="figures/circle.png" width="85%"><img src="figures/circle2.png" width="85%"></p>
+<div style="display: flex; flex-direction: column; gap: 0;">
+  <img src="figures/circle.png" width="85%">
+  <img src="figures/circle2.png" width="85%">
+</div>
 
 ## News
 * 2025.10.11: We have released the [**CIRCLE model**](https://huggingface.co/xxx) (Both image and text encoder) and the partial data [**CIRCLE Dataset**](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K). Enjoy it!
