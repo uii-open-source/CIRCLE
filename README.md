@@ -7,7 +7,7 @@
 <p>
 
 <p align="center">
-        🔥 <a href="https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K">CIRCLE Dataset</a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/xxx">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
+        🔥 <a href="https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K">CIRCLE Dataset</a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/uii-open-source/CIRCLE">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
 </p>
 
 ## Introduction
