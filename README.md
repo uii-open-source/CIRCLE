@@ -27,7 +27,7 @@ Developed through a collaboration between eight Chinese hospitals and United Ima
 </p>
 
 ## News
-* 2025.10.11: We have released the [**CIRCLE model**](https://huggingface.co/xxx) (Both image and text encoder) and the partial data [**CIRCLE Dataset**](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K). Enjoy it!
+* 2025.10.11: We have released the [**CIRCLE model**](https://huggingface.co/uii-open-source/CIRCLE) (Both image and text encoder) and the partial data [**CIRCLE Dataset**](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS2K). Enjoy it!
 * 2025.9.28: We have released the official PyTorch implementation for the CIRCLE foundation model.
 * 2025.7.28: We introduce the CIRCLE model to the world. The CIRCLE model made its debut at [**the 8th World Artificial Intelligence Conference (WAIC 2025, Shanghai)**](https://wallstreetcn.com/articles/3751978), where it was recognized for its strong generalization, diagnostic accuracy, and potential to enhance human–AI collaboration in CT interpretation.
 
@@ -197,7 +197,7 @@ trainer = CIRCLETrainer(
 
 Now, by running the following script inside the `CIRCLE/` folder, you can start training the CIRCLE model:
 ```bash
-python train/train_circle.py
+accelerate launch --use_fsdp train/train_circle.py
 ```
 Based on our training experience, using our hardware configuration, training the model on approximately 400,000 samples takes ～ 72 hours.
 
@@ -224,11 +224,11 @@ We provide test scripts for both evaluation methods.
 
 Here, we provide example test scripts for four representative diseases: pulmonary nodules, pneumothorax, pleural effusion, and cardiomegaly. Test images should be organized following the structure described in the [Dataset](#Dataset) section, i.e., `CIRCLE-ZS2K/image/..`, and then run the following script.
 ```bash
-python test/run_cls.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/image --center_csv /path/to/center_csv --output_path /path/to/output
+python test/run_cls.py --gpu_id 0 --vision_encoder_path /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/image --center_csv /path/to/center_csv --output_path /path/to/output
 ```
 The input parameters are explained as <span id="input">follows</span>:
 - `gpu_id`: specify the GPU ID, the default is '0'. 
-- `vision_encoder_dir`: path to the image encoder weights of the CIRCLE model.
+- `vision_encoder_path`: path to the image encoder weights of the CIRCLE model.
 - `text_encoder_dir`: path to the text encoder weights of the CIRCLE model.
 - `image_dir`: directory containing the CT images to be tested. Please ensure that the image organization strictly follows the folder structure described in the [Dataset](#Dataset) section, i.e., `CIRCLE-ZS2K/image/...`.
 - `center_csv`: path of a csv file of the crop center for each test image, which is typically set to the center of the lungs. Please refer to `CIRCLE-ZS2K/label/lung_center`.csv in the Dataset section for the correct csv file format.
@@ -243,10 +243,10 @@ This file contains five columns:
 
 For the prompt-based methods, run the following script.
 ```bash
-python test/run_cls_prompt.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/image --center_csv /path/to/center_csv --abnormality_name 冠脉钙化 --output_path /path/to/output
+python test/run_cls_prompt.py --gpu_id 0 --vision_encoder_path /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/image --center_csv /path/to/center_csv --abnormality_names 纵隔胸腺瘤 --output_path /path/to/output
 ```
 Most of the parameters can refer to the explanations in the script [above](#input). The explanations for the different parameters are as follows:
-- `abnormality_name`: enter the names of the categories to be classified. Only Chinese input is supported.
+- `abnormality_names`: enter the names of the categories to be classified. Only Chinese input is supported.
   
 After testing, the saved csv file contains two columns:
 - The first column is the test image name.
@@ -254,7 +254,7 @@ After testing, the saved csv file contains two columns:
 
 For the KNN-based methods, run the following <span id="CIRCLE_chest10">script</span>.
 ```bash
-python test/run_knn.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --knn_image_dir /path/to/knn_image --knn_center_csv /path/to/knn_center_csv --knn_label_csv /path/to/knn_label_csv --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --output_path /path/to/output
+python test/run_knn.py --gpu_id 0 --vision_encoder_path /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --knn_image_dir /path/to/knn_image --knn_center_csv /path/to/knn_center_csv --knn_label_csv /path/to/knn_label_csv --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --output_path /path/to/output
 ```
 Most of the parameters can refer to the explanations in the script [above](#input). The explanations for the different parameters are as follows:
 - `knn_image_dir`: folder containing images to be used as the retrieval database for the KNN method. Please point it to the `CIRCLE-ZS2K/image` folder in our open-source `CIRCLE-ZS2K` dataset.
@@ -273,7 +273,7 @@ You can directly use our open-sourced image encoder and text encoder for cross-m
 
 The script is as follows:
 ```bash
-python test/run_retrieval.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --report_csv /path/to/report_csv --type image-to-report --recall_num 5 --output_path /path/to/output
+python test/run_retrieval.py --gpu_id 0 --vision_encoder_path /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --report_csv /path/to/report_csv --type image-to-report --recall_num 5 --output_path /path/to/output
 ```
 Most of the parameters can refer to the explanations in the script [above](#input). The explanations for the different parameters are as follows:
 - `report_csv`: cross-modality retrieval requires a report file corresponding to the images as input.
@@ -295,7 +295,7 @@ For the patient-level screening task, we also use a KNN-prompt approach.
 The difference from using [KNN for the 10 downstream abnormality classification tasks](#CIRCLE_chest10) above is that the label file provided for the retrieval images is different.
 For the KNN-based methods, run the following script.
 ```bash
-python test/run_knn.py --gpu_id 0 --vision_encoder_dir /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --knn_image_dir /path/to/knn_image --knn_center_csv /path/to/knn_center_csv --knn_label_csv /path/to/knn_label_csv --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --output_path /path/to/output
+python test/run_knn.py --gpu_id 0 --vision_encoder_path /path/to/vision_encoder --text_encoder_dir /path/to/text_encoder --knn_image_dir /path/to/knn_image --knn_center_csv /path/to/knn_center_csv --knn_label_csv /path/to/knn_label_csv --image_dir /path/to/test_image --center_csv /path/to/test_center_csv --output_path /path/to/output
 ```
   
 After testing, the saved csv file contains two columns:

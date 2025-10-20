@@ -48,7 +48,7 @@ def get_top_k_idx(image_data, text_data, text_name_list, k, ):
 
 def run_retrieval(
         gpu_id,
-        vision_encoder_dir,
+        vision_encoder_path,
         text_encoder_dir,
         image_dir,
         center_csv,
@@ -61,7 +61,7 @@ def run_retrieval(
 
     Args:
         gpu_id (int): ID of GPU to use.
-        vision_encoder_dir (str): Directory containing the vision encoder model.
+        vision_encoder_path (str): Directory containing the vision encoder model.
         text_encoder_dir (str): Directory containing the text encoder model.
         image_dir (str): Directory containing images.
         center_csv (str): Path to CSV file containing lung center coordinates for images.
@@ -79,7 +79,7 @@ def run_retrieval(
     image_list = list(sorted(os.listdir(image_dir)))
 
     # Load the pre-trained vision and text models
-    circle_model, tokenizer = load_model(vision_encoder_dir, text_encoder_dir)
+    circle_model, tokenizer = load_model(vision_encoder_path, text_encoder_dir)
 
     # Encode the images into feature vectors in the dataset
     name_to_imge_feature = {}
@@ -106,7 +106,7 @@ def run_retrieval(
             i, "impression"]
 
     # Encode the textual reports into feature vectors
-    name_to_report_feature = encode_text(vision_encoder_dir, text_encoder_dir, name_to_report, device)
+    name_to_report_feature = encode_text(vision_encoder_path, text_encoder_dir, name_to_report, device)
 
     # Determine query and retrieval datasets based on the retrieval mode
     query_dataset = name_to_report_feature
@@ -150,22 +150,22 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='infer retrieval')
     parser.add_argument('--gpu_id', default=0)
-    parser.add_argument('--vision_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/visual_transformer.bin")
+    parser.add_argument('--vision_encoder_path',
+                        default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/model/vision_encoder.bin")
     parser.add_argument('--text_encoder_dir',
-                        default='/mnt/maui/Med_VLM/project/94_paper/20251020/model/nlp_roberta_backbone_base_std')
-    parser.add_argument('--image_dir', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/image/")
-    parser.add_argument('--center_csv', default='/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/lung_center.csv')
-    parser.add_argument('--report_csv', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/report/report.csv")
+                        default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/model/text_encoder')
+    parser.add_argument('--image_dir', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/image/")
+    parser.add_argument('--center_csv', default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/label/lung_center.csv')
+    parser.add_argument('--report_csv', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/report/report.csv")
     parser.add_argument('--retrieval_mode', default="image_to_report")
-    parser.add_argument('--recall_num', default=50)
-    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/20251020/output_retrieval")
+    parser.add_argument('--recall_num', default=5)
+    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/output_retrieval")
     args = parser.parse_args()
 
     # Execute the main function with parsed arguments
     run_retrieval(
         args.gpu_id,
-        args.vision_encoder_dir,
+        args.vision_encoder_path,
         args.text_encoder_dir,
         args.image_dir,
         args.center_csv,

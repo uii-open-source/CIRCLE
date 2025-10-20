@@ -54,7 +54,7 @@ def get_top_k_prob(image_data, text_data, text_label, k, is_random=False):
 
 def run_knn(
         gpu_id,
-        vision_encoder_dir,
+        vision_encoder_path,
         text_encoder_dir,
         image_dir,
         center_csv,
@@ -67,7 +67,7 @@ def run_knn(
 
     Args:
         gpu_id (int): ID of GPU to use.
-        vision_encoder_dir (str): Directory containing the vision encoder model.
+        vision_encoder_path (str): Directory containing the vision encoder model.
         text_encoder_dir (str): Directory containing the text encoder model.
         image_dir (str): Directory containing training images.
         center_csv (str): Path to CSV file containing lung center coordinates for training images.
@@ -82,7 +82,7 @@ def run_knn(
     os.makedirs(output_path, exist_ok=True)
 
     # Load the pre-trained vision and text models
-    circle_model, tokenizer = load_model(vision_encoder_dir, text_encoder_dir)
+    circle_model, tokenizer = load_model(vision_encoder_path, text_encoder_dir)
 
     # Get lung centers for images from the provided CSV file
     image_to_center = get_lung_center(center_csv)
@@ -163,30 +163,30 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='infer knn cls')
     parser.add_argument('--gpu_id', default=0)
-    parser.add_argument('--vision_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/visual_transformer.bin")
+    parser.add_argument('--vision_encoder_path',
+                        default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/model/vision_encoder.bin")
     parser.add_argument('--text_encoder_dir',
-                        default='/mnt/maui/Med_VLM/project/94_paper/20251020/model/nlp_roberta_backbone_base_std')
-    parser.add_argument('--knn_image_dir', default='/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/image/')
+                        default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/model/text_encoder/')
+    parser.add_argument('--knn_image_dir', default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/image/')
     parser.add_argument('--knn_center_csv',
-                        default='/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/lung_center.csv')
+                        default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/label/lung_center.csv')
     parser.add_argument('--knn_label_csv',
-                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/CIRCLE_chest37.csv")
-    parser.add_argument('--test_image_dir', default='/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/image/')
-    parser.add_argument('--test_image_center_csv',
-                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/lung_center.csv")
-    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/20251020/output")
+                        default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/label/CIRCLE_chest37.csv")
+    parser.add_argument('--image_dir', default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/image/')
+    parser.add_argument('--center_csv',
+                        default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/label/lung_center.csv")
+    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/output")
     args = parser.parse_args()
 
     # Execute the main function with parsed arguments
     run_knn(
         args.gpu_id,
-        args.vision_encoder_dir,
+        args.vision_encoder_path,
         args.text_encoder_dir,
         args.knn_image_dir,
         args.knn_center_csv,
         args.knn_label_csv,
-        args.test_image_dir,
-        args.test_image_center_csv,
+        args.image_dir,
+        args.center_csv,
         args.output_path
     )
