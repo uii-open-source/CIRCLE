@@ -27,14 +27,14 @@ def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
     """
     direction = []
     # Flatten 3x3 axes matrix to 1D direction vector for SimpleITK
-    for col in range(3):
-        for row in range(3):
+    for row in range(3):
+        for col in range(3):
             direction.append(float(axes[col][row]))
 
     # Compute origin of the crop in world coordinates
     offset = [0.0, 0.0, 0.0]
     for dim in range(3):
-        half_len = (crop_size[dim] - 1) * spacing[dim] / 2.0
+        half_len = (crop_size[dim]) * spacing[dim] / 2.0
         for axis in range(3):
             offset[axis] += half_len * axes[dim][axis]
     origin = [float(center[i] - offset[i]) for i in range(3)]
@@ -66,7 +66,8 @@ def intensity_normalize(img_data, mean, stddev, clip=False):
     Returns:
         normalized image as float32 numpy array
     """
-    img_data = ((img_data + mean) / stddev).astype(np.float32)
+    img_data = img_data.astype(np.float32)
+    img_data = ((img_data - mean) / stddev).astype(np.float32)
     if clip:
         img_data = np.clip(img_data, -1.0, 1.0)
     return img_data
@@ -183,8 +184,8 @@ class CIRCLEDataset(Dataset):
         shift_mm = 20.0
 
         # Normalization
-        mean = 0
-        stddev = 1000
+        mean = -400
+        stddev = 600
         clip = False
 
         # Crop parameters

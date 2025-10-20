@@ -107,8 +107,8 @@ class CIRCLE(nn.Module):
         self.to_text_latent = nn.Linear(dim_text, dim_latent, bias=False)
 
         # Learnable temperature and bias for contrastive scaling
-        self.temperature = nn.Parameter(torch.ones(1) * np.log(10))
-        self.bias = nn.Parameter(torch.ones(1) * (-10))
+        self.temperature = nn.Parameter(torch.tensor(np.log(10.0)))
+        self.bias = nn.Parameter(torch.tensor(-10.0))
 
         # Binary cross-entropy loss for classification
         self.cls_loss_fn = nn.BCEWithLogitsLoss()
@@ -157,23 +157,12 @@ class CIRCLE(nn.Module):
         Args:
             image: input 3D image tensor (B, C, D, H, W)
         Returns:
+            cls_logits: classification logits
             image_latents: projected image embeddings
         """
         cls_logits, enc_image = self.visual_transformer(image)
         image_latents = self.to_image_latent(enc_image)
-        return image_latents
-
-    # Run classification head only
-    def run_classification(self, image):
-        """
-        Args:
-            image: input 3D image tensor
-        Returns:
-            cls_logits: classification logits
-            enc_image: feature map from EffNet3D
-        """
-        cls_logits, enc_image = self.visual_transformer(image)
-        return cls_logits, enc_image
+        return cls_logits, image_latents
 
     # Forward pass for CLIP-style contrastive similarity
     def clip_forward(self, image_features, text_features):
@@ -185,7 +174,6 @@ class CIRCLE(nn.Module):
             scaled similarity matrix (B, B)
         """
         # L2 normalize features
-        image_features = image_features[:, 0, :].contiguous()
         image_features = l2norm(image_features)
         text_features = l2norm(text_features)
         # Compute cosine similarity scaled by temperature and bias
