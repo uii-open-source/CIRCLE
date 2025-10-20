@@ -63,15 +63,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='infer prompt-based(sigmoid) zero-shot')
     parser.add_argument('--gpu_id', default=0)
     parser.add_argument('--vision_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/visual_transformer_4cls.bin")
+                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/20251020/model/vision_encoder.bin")
     parser.add_argument('--text_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/nlp_roberta_backbone_base_std")
+                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/20251020/model/text_encoder/")
     parser.add_argument('--image_dir', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/image/")
     parser.add_argument('--center_csv', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/lung_center.csv")
     parser.add_argument('--lesion_names',
                         default=["纵隔胸腺瘤", "肝密度减低或脂肪肝", "引流管", "起搏器", "胸腺退化不全",
                                  "食管狭窄", "乳缺如", "冠脉支架", "冠脉钙化", "主动脉钙化"])
-    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/output")
+    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/output_final")
     args = parser.parse_args()
 
     # Execute prompt-based classification pipeline

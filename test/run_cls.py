@@ -60,12 +60,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='infer classification')
     parser.add_argument('--gpu_id', default=0)
     parser.add_argument('--vision_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/visual_transformer_4cls.bin")
+                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/20251020/model/vision_encoder.bin")
     parser.add_argument('--text_encoder_dir',
-                        default="/mnt/maui/Med_VLM/project/94_paper/20251020/model/nlp_roberta_backbone_base_std/")
+                        default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/20251020/model/text_encoder/")
     parser.add_argument('--image_dir', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/image/")
     parser.add_argument('--center_csv', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/label/lung_center.csv")
-    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/output_md")
+    parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/94_paper/CIRCLE_ZS2K/output_final")
     args = parser.parse_args()
 
     # Execute classification pipeline

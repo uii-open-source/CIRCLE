@@ -129,7 +129,6 @@ class CIRCLE(nn.Module):
         assert path.exists()
         pt = torch.load(str(path), map_location="cpu")
         msg = self.load_state_dict(pt, strict=False)
-        print(msg)
 
     # Encode text to latent representation
     def encode_text(self, text):
