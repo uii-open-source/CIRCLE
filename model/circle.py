@@ -107,8 +107,8 @@ class CIRCLE(nn.Module):
         self.to_text_latent = nn.Linear(dim_text, dim_latent, bias=False)
 
         # Learnable temperature and bias for contrastive scaling
-        self.temperature = nn.Parameter(torch.tensor(np.log(10.0)))
-        self.bias = nn.Parameter(torch.tensor(-10.0))
+        self.temperature = nn.Parameter(torch.tensor([np.log(10.0)], dtype=torch.float32))
+        self.bias = nn.Parameter(torch.tensor([-10.0], dtype=torch.float32))
 
         # Binary cross-entropy loss for classification
         self.cls_loss_fn = nn.BCEWithLogitsLoss()
@@ -127,8 +127,17 @@ class CIRCLE(nn.Module):
         """
         path = Path(path)
         assert path.exists()
-        pt = torch.load(str(path), map_location="cpu")
-        msg = self.load_state_dict(pt, strict=False)
+        state_dict = torch.load(str(path), map_location="cpu")
+
+        # Compatible with the cases where temperature and bias parameters are scalars.
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k in ['temperature', 'bias'] and v.dim() == 0:
+                new_state_dict[k] = v.unsqueeze(0)
+            else:
+                new_state_dict[k] = v
+
+        msg = self.load_state_dict(new_state_dict, strict=False)
 
     # Encode text to latent representation
     def encode_text(self, text):

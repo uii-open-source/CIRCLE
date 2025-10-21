@@ -294,7 +294,7 @@ class CIRCLETrainer(nn.Module):
                 state_dict = self.accelerator.get_state_dict(self.circle, unwrap=False)
             if self.is_main:
                 # construct model path (results_folder is a string; using f-string with pathlib-like semantics)
-                model_path = str(self.results_folder / f'circle.{steps}.pt')
+                model_path = os.path.join(self.results_folder, f'circle.{steps}.pt')
                 # accelerator.save handles saving in distributed environment
                 self.accelerator.save(state_dict, model_path)
                 self.print(f'{steps}: saving model to {str(self.results_folder)}')

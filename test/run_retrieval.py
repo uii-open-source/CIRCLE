@@ -157,7 +157,7 @@ if __name__ == '__main__':
     parser.add_argument('--image_dir', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/image/")
     parser.add_argument('--center_csv', default='/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/label/lung_center.csv')
     parser.add_argument('--report_csv', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/report/report.csv")
-    parser.add_argument('--retrieval_mode', default="image_to_report")
+    parser.add_argument('--type', default="image_to_report")
     parser.add_argument('--recall_num', default=5)
     parser.add_argument('--output_path', default="/mnt/maui/Med_VLM/project/CIRCLE_ZS2K/output_retrieval")
     args = parser.parse_args()
@@ -170,6 +170,6 @@ if __name__ == '__main__':
         args.image_dir,
         args.center_csv,
         args.report_csv,
-        args.retrieval_mode,
+        args.type,
         args.recall_num,
         args.output_path)

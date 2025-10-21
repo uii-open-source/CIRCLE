@@ -99,7 +99,7 @@ class CIRCLEDataset(Dataset):
         Returns:
             dict: image_name -> np.array([x, y, z])
         """
-        df = pd.read_csv(center_csv)
+        df = pd.read_csv(center_csv, dtype={'image_name': str})
         image_to_center = {}
         for i in range(df.shape[0]):
             image_to_center[df.loc[i, 'image_name']] = np.array([df.loc[i, 'lung_center_world_x'],
@@ -116,9 +116,9 @@ class CIRCLEDataset(Dataset):
             dict: image_name -> list of 37 labels
         """
         image_to_label = {}
-        df = pd.read_csv(label_csv)
-        # skip first 3 columns, next 37 columns are labels
-        sorted_cols = df.columns.tolist()[3:]
+        df = pd.read_csv(label_csv, dtype={'image_name': str})
+        # skip first columns, next 37 columns are labels
+        sorted_cols = df.columns.tolist()[1:]
         assert len(sorted_cols) == 37
         for i in range(df.shape[0]):
             image_to_label[df.loc[i, 'image_name']] = [df.loc[i, col] for col in sorted_cols]
@@ -130,11 +130,11 @@ class CIRCLEDataset(Dataset):
         Returns:
             dict: image_name -> (description, conclusion)
         """
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, dtype={'image_name': str})
         image_to_text = {}
         for i in range(df.shape[0]):
             image_name = df.loc[i, 'image_name']
-            image_to_text[image_name] = df.loc[i, 'description'], df.loc[i, 'conclusion']
+            image_to_text[image_name] = df.loc[i, 'finding'], df.loc[i, 'impression']
         return image_to_text
 
     def prepare_samples(self):
