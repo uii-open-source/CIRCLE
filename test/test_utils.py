@@ -228,7 +228,7 @@ def encode_text(
     text_encoder_dir,
     text_list,
     device,
-    num_classes=37
+    num_classes=4
 ):
     """
     Loads a model and encodes text inputs into feature vectors.
@@ -238,7 +238,7 @@ def encode_text(
         text_encoder_dir (str): Path to the text encoder model directory.
         text_list (dict): Dictionary mapping image names to text descriptions.
         device: The device (CPU/GPU) to run the model on.
-        num_classes (int, optional): Number of output classes for the model. Defaults to 37.
+        num_classes (int, optional): Number of output classes for the model. Defaults to 4.
 
     Returns:
         dict: A dictionary mapping image names to their encoded text features as numpy arrays.
