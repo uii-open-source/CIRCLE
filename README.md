@@ -117,7 +117,8 @@ The specific types and versions of the required software can be found in the `re
 
 
 ## Training
-### Model Preparation
+### CIRCLE（CLIP Model）
+#### Model Preparation
 Before starting the training, you need to prepare the text encoder used in CIRCLE.
 1. Using a Pre-trained Chinese RoBERTa Model
 
@@ -148,7 +149,7 @@ text_encoder = BertModel.from_pretrained("/path/to/circle/text_model/nlp_roberta
 > 🔧 Replace `/path/to/circle/text_model/nlp_roberta_backbone_base_std`
 with the actual path to your local `nlp_roberta_backbone_base_std` directory.
 
-### Dataset Preparation
+#### Dataset Preparation
 If you are using **our open-source CIRCLE-ZS2K dataset**, simply download it to your local machine and update the dataset paths in the training script
 `train/train_circle.py` as follows:
 ```bash
@@ -174,7 +175,7 @@ with the corresponding subfolders in your locally downloaded CIRCLE-ZS2K dataset
 If you are using your own dataset, please make sure to prepare the training data in the same structure and format as the CIRCLE-ZS2K dataset.
 A detailed description of the required data format can be found in the [Dataset](#Dataset) section of this README.
 
-### Training Script
+#### Training Script
 First, specify the paths for saving trained model checkpoints and output results in the training script `train/train_circle.py`:
 ```bash
 trainer = CIRCLETrainer(
@@ -197,9 +198,78 @@ trainer = CIRCLETrainer(
 
 Now, by running the following script inside the `CIRCLE/` folder, you can start training the CIRCLE model:
 ```bash
-accelerate launch --use_fsdp train/train_circle.py
+accelerate launch --use_fsdp --mixed_precision=bf16 train/train_circle.py
 ```
 Based on our training experience, using our hardware configuration, training the model on approximately 400,000 samples takes ～ 72 hours.
+
+
+### CIRCLE-Report
+
+CIRCLE-Report is a large language model (LLM)-based radiology report generation module built upon the vision-language alignment established by CIRCLE. It leverages a pre-trained Qwen3-8B LLM enhanced with **LoRA (Low-Rank Adaptation)** for efficient fine-tuning, and generate structured diagnostic reports conditioned on CT images.
+
+#### Model Preparation
+
+1. **Base Language Model**  
+   CIRCLE-Report uses **Qwen3-8B** as its backbone LLM. You must first download the model weights and place them in a local directory.
+
+2. **Vision Encoder**  
+   A pre-trained vision encoder (from CIRCLE) is required. Ensure you have the checkpoint file (e.g., `vision_encoder.bin`) ready.
+
+3. **LoRA Configuration**  
+   To reduce memory usage and enable efficient adaptation, LoRA is applied to key transformer modules.
+
+#### Training Setup
+
+Update the training script `train/train_circle_report.py` (or equivalent) with your local paths:
+
+```python
+# Path to Qwen3-8B model
+llm_cache_dir = "/path/to/Qwen3-8B"
+
+# Path to pre-trained vision encoder
+pretrained_vision_encoder_path = "/path/to/vision_encoder.bin"
+
+# Dataset paths (same structure as CIRCLE-ZS2K)
+data_folder = '/path/to/image'
+label_csv = '/path/to/label/label.csv'
+lung_center_csv = '/path/to/label/lung_center.csv'
+report_csv = '/path/to/report/report.csv'
+
+# Output directory
+results_folder = "/path/to/report_results"
+```
+
+The trainer is initialized as follows:
+
+```python
+trainer = CIRCLETrainer(
+    circle_report_model,
+    train_gpt=True,
+    data_folder=data_folder,
+    label_csv=label_csv,
+    lung_center_csv=lung_center_csv,
+    report_csv=report_csv,
+    lr=2e-5,
+    max_grad_norm=1.0,
+    batch_size=3,
+    num_train_steps=200001,
+    num_workers=6,
+    save_results_every=1500,
+    save_model_every=10,
+    results_folder=results_folder,
+)
+```
+
+> 🔧 Replace all placeholder paths (`/path/to/...`) with your actual local directories.
+
+#### Launch Training
+
+Run the following command from the project root to start training:
+
+```bash
+accelerate launch --mixed_precision=bf16 train/train_circle_report.py
+```
+
 
 ## Evaluation Reproduction
 This section introduces how to reproduce the downstream tasks mentioned in our paper using our publicly released model.
