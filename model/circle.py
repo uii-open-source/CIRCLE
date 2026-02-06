@@ -10,17 +10,6 @@ from torch import nn, einsum
 # Import Efficientnet as image encoder
 from model.efficient_net import EffNet3D
 
-# Small utility function to compute logarithm with numerical stability
-def log(t, eps=1e-20):
-    """
-    Compute logarithm of input tensor t, adding epsilon to avoid log(0)
-    Args:
-        t: input tensor
-        eps: small number to avoid log(0)
-    Returns:
-        log(t + eps)
-    """
-    return torch.log(t + eps)
 
 # L2 normalization along the last dimension
 def l2norm(t):

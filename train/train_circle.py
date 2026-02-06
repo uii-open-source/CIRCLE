@@ -29,7 +29,7 @@ circle_model = CIRCLE(
 # Initialize the trainer that will handle data loading, forward pass, loss computation, backprop, and checkpointing
 trainer = CIRCLETrainer(
     circle_model,                              # the CIRCLE model instance
-    tokenizer,                                 # tokenizer for processing text inputs
+    tokenizer=tokenizer,                       # tokenizer for processing text inputs
     data_folder='/path/to/image',                      # folder containing all patient CT data
     label_csv='/path/to/label/label.csv',                    # CSV file mapping image names to labels
     lung_center_csv='/path/to/label/lung_center.csv',        # CSV file with lung center coordinates for cropping

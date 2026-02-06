@@ -180,12 +180,14 @@ class EffNet3D(nn.Module):
         logit = self.classifier(feature)
         return feature, logit
 
-    def forward(self, x):
+    def forward(self, x, return_image_feature=False):
         """
         Forward pass returns both classification logits and feature vector
         """
         x = self.features(x)
         x = self.conv(x)
+        if return_image_feature:
+            return x
         x = self.avgpool(x)
         feature = x.view(x.size(0), -1)
         x = self.classifier(feature)

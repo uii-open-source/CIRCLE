@@ -73,6 +73,139 @@ def intensity_normalize(img_data, mean, stddev, clip=False):
     return img_data
 
 
+def prepare_image(img_path, crop_center, augmentation=True):
+    """
+    Load image, apply cropping, optional augmentation, and normalization
+    Args:
+        img_path: path to CT image (.nii.gz)
+        crop_center: 3D coordinates of center for cropping
+        augmentation: do data augmentation
+    Returns:
+        torch.FloatTensor of shape (1, D, H, W)
+    """
+    # Augmentation probabilities and parameters
+    rot_prob = 0
+    rot_angle_degree = 10
+
+    scale_prob = 0
+    scale_isotropic = True
+    scale_min_ratio = 0.95
+    scale_max_ratio = 1.05
+
+    shift_prob = 0
+    shift_mm = 20.0
+
+    # Normalization
+    mean = -400
+    stddev = 600
+    clip = False
+
+    # Crop parameters
+    crop_size = np.array([300, 300, 160])  # voxels
+    crop_spacing = np.array([1.0, 1.0, 2.0])  # mm
+    crop_axes = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.double)
+    crop_scale_ratio = np.array([1.0, 1.0, 1.0])
+
+    # Randomly decide whether to apply augmentations
+    rotate_flag = np.random.choice([False, True], p=[1 - rot_prob, rot_prob]) if 0 <= rot_prob <= 1 else False
+    scale_flag = np.random.choice([False, True], p=[1 - scale_prob, scale_prob]) if 0 <= scale_prob <= 1 else False
+    shift_flag = np.random.choice([False, True], p=[1 - shift_prob, shift_prob]) if 0 <= shift_prob <= 1 else False
+
+    if augmentation and (rotate_flag or scale_flag or shift_flag):
+        if rotate_flag:
+            # Random rotation around a unit sphere axis
+            rot_axis = uniform_sample_point_from_unit_sphere()
+            rot_axis = rot_axis[0]
+            angle = np.random.random() * rot_angle_degree * math.pi / 180.0
+            crop_axes = axis_angle_to_rotation_matrix(rot_axis, angle)
+        if scale_flag:
+            # Random isotropic or anisotropic scaling
+            if scale_isotropic:
+                scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio)
+                scale_ratio = np.array([scale_ratio] * 3)
+            else:
+                scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio, (3,))
+            crop_scale_ratio *= scale_ratio
+            crop_spacing = crop_spacing / crop_scale_ratio
+        if shift_flag:
+            # Random shift of crop center
+            shift = np.random.uniform(-shift_mm, shift_mm, (3,))
+            crop_center += shift
+
+    # Load image using SimpleITK
+    img = sitk.ReadImage(img_path)
+    # Crop and resample image
+    cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
+    # Convert to numpy array
+    cropped_img = sitk.GetArrayFromImage(cropped_img)
+    # Intensity normalization
+    cropped_img = intensity_normalize(cropped_img, mean, stddev, clip)
+
+    # Convert to torch tensor and add channel dimension
+    cropped_img = torch.from_numpy(cropped_img)
+    cropped_img = torch.unsqueeze(cropped_img, 0)  # (1, D, H, W)
+    cropped_img = cropped_img.float()
+    return cropped_img
+
+
+def load_image_to_label(label_csv):
+    """
+    Read image labels from CSV
+    Args:
+        label_csv: path to CSV containing image_name and 37 label columns
+    Returns:
+        dict: image_name -> list of 37 labels
+    """
+    image_to_label = {}
+    df = pd.read_csv(label_csv, dtype={'image_name': str})
+    # skip first columns, next 37 columns are labels
+    sorted_cols = df.columns.tolist()[1:]
+    assert len(sorted_cols) == 37
+    for i in range(df.shape[0]):
+        image_to_label[df.loc[i, 'image_name']] = [df.loc[i, col] for col in sorted_cols]
+    return image_to_label
+
+
+def load_report_text(csv_file):
+    """
+    Load report text (description + conclusion) from CSV
+    Returns:
+        dict: image_name -> (description, conclusion)
+    """
+    df = pd.read_csv(csv_file, dtype={'image_name': str})
+    image_to_text = {}
+    for i in range(df.shape[0]):
+        image_name = df.loc[i, 'image_name']
+        image_to_text[image_name] = [df.loc[i, 'finding'], df.loc[i, 'impression']]
+    return image_to_text
+
+
+def get_lung_center(center_csv):
+    """
+    Read lung center coordinates from CSV
+    Args:
+        center_csv: path to CSV containing 'image_name' and lung_center_world_x/y/z
+    Returns:
+        dict: image_name -> np.array([x, y, z])
+    """
+    df = pd.read_csv(center_csv, dtype={'image_name': str})
+    image_to_center = {}
+    for i in range(df.shape[0]):
+        image_to_center[df.loc[i, 'image_name']] = np.array([df.loc[i, 'lung_center_world_x'],
+                                                             df.loc[i, 'lung_center_world_y'],
+                                                             df.loc[i, 'lung_center_world_z']])
+    return image_to_center
+
+
+def label_to_str(labels, label_names):
+    label_str = []
+    assert len(labels) == len(label_names)
+    for i in range(len(labels)):
+        if labels[i] == 1:
+            label_str.append(label_names[i])
+    return label_str
+
+
 class CIRCLEDataset(Dataset):
     """
     PyTorch Dataset for CIRCLE project.
@@ -82,60 +215,14 @@ class CIRCLEDataset(Dataset):
     def __init__(self, data_folder, label_csv, lung_center_csv, report_csv):
         self.data_folder = data_folder
         # Load mapping from image name to label vector
-        self.image_to_label = self.load_image_to_label(label_csv)
+        self.image_to_label = load_image_to_label(label_csv)
         # Load lung center coordinates for each image
-        self.image_to_center = self.get_lung_center(lung_center_csv)
+        self.image_to_center = get_lung_center(lung_center_csv)
         # Load report text (description + conclusion) for each image
-        self.image_to_text = self.load_report_text(report_csv)
+        self.image_to_text = load_report_text(report_csv)
         # Prepare list of samples for __getitem__
         self.samples = self.prepare_samples()
         print('--------------- num of sample: {} ----------------'.format(len(self.samples)))
-
-    def get_lung_center(self, center_csv):
-        """
-        Read lung center coordinates from CSV
-        Args:
-            center_csv: path to CSV containing 'image_name' and lung_center_world_x/y/z
-        Returns:
-            dict: image_name -> np.array([x, y, z])
-        """
-        df = pd.read_csv(center_csv, dtype={'image_name': str})
-        image_to_center = {}
-        for i in range(df.shape[0]):
-            image_to_center[df.loc[i, 'image_name']] = np.array([df.loc[i, 'lung_center_world_x'],
-                                                                 df.loc[i, 'lung_center_world_y'],
-                                                                 df.loc[i, 'lung_center_world_z']])
-        return image_to_center
-
-    def load_image_to_label(self, label_csv):
-        """
-        Read image labels from CSV
-        Args:
-            label_csv: path to CSV containing image_name and 37 label columns
-        Returns:
-            dict: image_name -> list of 37 labels
-        """
-        image_to_label = {}
-        df = pd.read_csv(label_csv, dtype={'image_name': str})
-        # skip first columns, next 37 columns are labels
-        sorted_cols = df.columns.tolist()[1:]
-        assert len(sorted_cols) == 37
-        for i in range(df.shape[0]):
-            image_to_label[df.loc[i, 'image_name']] = [df.loc[i, col] for col in sorted_cols]
-        return image_to_label
-
-    def load_report_text(self, csv_file):
-        """
-        Load report text (description + conclusion) from CSV
-        Returns:
-            dict: image_name -> (description, conclusion)
-        """
-        df = pd.read_csv(csv_file, dtype={'image_name': str})
-        image_to_text = {}
-        for i in range(df.shape[0]):
-            image_name = df.loc[i, 'image_name']
-            image_to_text[image_name] = df.loc[i, 'finding'], df.loc[i, 'impression']
-        return image_to_text
 
     def prepare_samples(self):
         """
@@ -162,79 +249,6 @@ class CIRCLEDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
-    def prepare_image(self, img_path, crop_center):
-        """
-        Load image, apply cropping, optional augmentation, and normalization
-        Args:
-            img_path: path to CT image (.nii.gz)
-            crop_center: 3D coordinates of center for cropping
-        Returns:
-            torch.FloatTensor of shape (1, D, H, W)
-        """
-        # Augmentation probabilities and parameters
-        rot_prob = 0
-        rot_angle_degree = 10
-
-        scale_prob = 0
-        scale_isotropic = True
-        scale_min_ratio = 0.95
-        scale_max_ratio = 1.05
-
-        shift_prob = 0
-        shift_mm = 20.0
-
-        # Normalization
-        mean = -400
-        stddev = 600
-        clip = False
-
-        # Crop parameters
-        crop_size = np.array([300, 300, 160])  # voxels
-        crop_spacing = np.array([1.0, 1.0, 2.0])  # mm
-        crop_axes = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.double)
-        crop_scale_ratio = np.array([1.0, 1.0, 1.0])
-
-        # Randomly decide whether to apply augmentations
-        rotate_flag = np.random.choice([False, True], p=[1 - rot_prob, rot_prob]) if 0 <= rot_prob <= 1 else False
-        scale_flag = np.random.choice([False, True], p=[1 - scale_prob, scale_prob]) if 0 <= scale_prob <= 1 else False
-        shift_flag = np.random.choice([False, True], p=[1 - shift_prob, shift_prob]) if 0 <= shift_prob <= 1 else False
-
-        if rotate_flag or scale_flag or shift_flag:
-            if rotate_flag:
-                # Random rotation around a unit sphere axis
-                rot_axis = uniform_sample_point_from_unit_sphere()
-                rot_axis = rot_axis[0]
-                angle = np.random.random() * rot_angle_degree * math.pi / 180.0
-                crop_axes = axis_angle_to_rotation_matrix(rot_axis, angle)
-            if scale_flag:
-                # Random isotropic or anisotropic scaling
-                if scale_isotropic:
-                    scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio)
-                    scale_ratio = np.array([scale_ratio] * 3)
-                else:
-                    scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio, (3,))
-                crop_scale_ratio *= scale_ratio
-                crop_spacing = crop_spacing / crop_scale_ratio
-            if shift_flag:
-                # Random shift of crop center
-                shift = np.random.uniform(-shift_mm, shift_mm, (3,))
-                crop_center += shift
-
-        # Load image using SimpleITK
-        img = sitk.ReadImage(img_path)
-        # Crop and resample image
-        cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
-        # Convert to numpy array
-        cropped_img = sitk.GetArrayFromImage(cropped_img)
-        # Intensity normalization
-        cropped_img = intensity_normalize(cropped_img, mean, stddev, clip)
-
-        # Convert to torch tensor and add channel dimension
-        cropped_img = torch.from_numpy(cropped_img)
-        cropped_img = torch.unsqueeze(cropped_img, 0)  # (1, D, H, W)
-        cropped_img = cropped_img.float()
-        return cropped_img
-
     def __getitem__(self, index):
         """
         Return one sample for PyTorch DataLoader
@@ -245,5 +259,63 @@ class CIRCLEDataset(Dataset):
         """
         image_path, input_text, lung_center, labels = self.samples[index]
         labels = torch.Tensor(labels)
-        image_tensor = self.prepare_image(image_path, lung_center)
+        image_tensor = prepare_image(image_path, lung_center)
         return image_tensor, input_text, labels
+
+
+class CIRCLEReportDataset(Dataset):
+    def __init__(self, data_folder, label_csv, lung_center_csv, report_csv):
+        self.data_folder = data_folder
+        # Load mapping from image name to label vector
+        self.image_to_label = load_image_to_label(label_csv)
+        # Load lung center coordinates for each image
+        self.image_to_center = get_lung_center(lung_center_csv)
+        # Load report text (description + conclusion) for each image
+        self.image_to_text = load_report_text(report_csv)
+        # Prepare list of samples for __getitem__
+        self.samples = self.prepare_samples()
+        print('--------------- num of sample: {} ----------------'.format(len(self.samples)))
+        self.label_37_names = [
+            '肺部阴影', '肺部结节/肿块', '肺内钙化', '肺部透亮影', '肺实变', '肺部炎症', '肺结核', '间质改变', '肺不张', '肺水肿',
+            '肺气肿', '肺大泡/肺气囊腔', '纵隔肿块', '纵隔钙化', '纵隔淋巴结肿大', '气管扩张/增厚', '气管憩室', '支气管炎', '心包积液',
+            '心包增厚', '心肥大', '心脏及血管钙化', '肺动脉增粗', '肺动脉高压', '主动脉增粗', '胸腔积液', '气胸', '胸膜钙化',
+            '胸膜增厚', '胸膜胸壁结节', '食管裂孔疝', '食管增厚', '骨折', '骨质破坏', '骨肿瘤', '术后', '设备植入'
+        ]
+
+    def prepare_samples(self):
+        """
+        Prepare list of samples containing:
+        (image_path, report_text, lung_center, labels)
+        """
+        samples = []
+        image_names = sorted(self.image_to_text.keys())
+        img_dir = self.data_folder
+        for name in image_names:
+            if name not in self.image_to_label or name not in self.image_to_center:
+                continue
+            image_path = os.path.join(img_dir, name, 'CT.nii.gz')
+            if not os.path.exists(image_path):
+                print('{} not exist'.format(image_path))
+                continue
+            description, conclusion = self.image_to_text[name]
+            report = [description, conclusion]
+            lung_center = self.image_to_label[name]  # might be replaced with actual lung center if needed
+            label = self.image_to_label[name]
+            samples.append((image_path, report, lung_center, label))
+        return samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        image_path, input_text, lung_center, labels = self.samples[index]
+        image_tensor = prepare_image(image_path, lung_center)
+        description, conclusion = input_text
+        label_str = label_to_str(labels, self.label_37_names)
+        if label_str:
+            label_str = "，".join(label_str)
+        else:
+            label_str = "无"
+        question = "异常标签是：{}。根据图像和异常标签给出准确的影像所见和诊断结论。".format(label_str)
+        answer = "影像所见：{}\n诊断结论：{}".format(description, conclusion)
+        return image_tensor, question, answer

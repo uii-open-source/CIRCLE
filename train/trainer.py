@@ -16,8 +16,10 @@ from torch.utils.data import DataLoader
 from torch.distributed.fsdp.fully_sharded_data_parallel import FullStateDictConfig, StateDictType
 
 # Customize datasets and optimizer to obtain functions
-from train.dataset import CIRCLEDataset
+from train.dataset import CIRCLEDataset, CIRCLEReportDataset
 from train.utils import get_optimizer
+from model.circle import CIRCLE
+from model.circle_report import CIRCLEReport
 
 
 def exists(val):
@@ -73,13 +75,14 @@ class CIRCLETrainer(nn.Module):
     def __init__(
         self,
         circle_model,
-        tokenizer,
         data_folder,
         label_csv,
         lung_center_csv,
         report_csv,
         num_train_steps,
         batch_size,
+        tokenizer=None,  # for clip
+        train_gpt=False,  # for report task
         lr = 1.25e-5,
         wd = 0.,
         max_grad_norm = 0.5,
@@ -105,14 +108,22 @@ class CIRCLETrainer(nn.Module):
         """
         super().__init__()
 
+        if isinstance(circle_model, CIRCLE):
+            self.task = 'clip'
+        elif isinstance(circle_model, CIRCLEReport):
+            self.task = 'report'
+            self.train_gpt = train_gpt
+        else:
+            raise ValueError('Invalid task')
+
         # configure DDP kwargs (find_unused_parameters may be required when some parameters are not touched every step)
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
         # configure process group init timeout (long timeout to accommodate heavy I/O or slow nodes)
         kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=36000))
 
-        # create Accelerator instance with mixed precision FP16 and our kwargs handlers
+        # create Accelerator instance with kwargs handlers
         # Accelerator handles device placement, distributed setup, and preparing models/optimizers/dataloaders
-        self.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs, kwargs], mixed_precision='fp16', **accelerate_kwargs)
+        self.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs, kwargs], **accelerate_kwargs)
 
         # model and tokenizer references
         self.circle = circle_model
@@ -135,7 +146,12 @@ class CIRCLETrainer(nn.Module):
         self.lr=lr
 
         # initialize dataset (loads CSVs and prepares sample list)
-        self.ds = CIRCLEDataset(data_folder, label_csv, lung_center_csv, report_csv)
+        if self.task == 'clip':
+            self.ds = CIRCLEDataset(data_folder, label_csv, lung_center_csv, report_csv)
+        elif self.task == 'report':
+            self.ds = CIRCLEReportDataset(data_folder, label_csv, lung_center_csv, report_csv)
+        else:
+            raise ValueError('Invalid task')
 
         # build DataLoader: shuffling enabled (typical for training)
         self.dl = DataLoader(
@@ -171,6 +187,9 @@ class CIRCLETrainer(nn.Module):
         self.save_results_every = save_results_every
         self.results_folder = results_folder
         os.makedirs(results_folder, exist_ok=True)
+        if train_gpt:
+            self.gpt_results_folder = os.path.join(results_folder, "VGPT")
+            os.makedirs(self.gpt_results_folder, exist_ok=True)
 
     def save(self, path):
         """
@@ -217,7 +236,7 @@ class CIRCLETrainer(nn.Module):
         """
         return self.accelerator.is_main_process
 
-    def train_step(self):
+    def clip_train_step(self):
         """
         Execute a single training step:
           - fetch batch (image, text, label)
@@ -303,7 +322,68 @@ class CIRCLETrainer(nn.Module):
         self.steps += 1
         return logs
 
+    def report_train_step(self):
+        """
+        Execute a single training step:
+          - fetch batch (image, text, label)
+          - tokenize text with tokenizer -> move to device
+          - forward pass through CIRCLE model (under autocast for mixed precision)
+          - backward (accelerator.backward)
+          - optional gradient clipping
+          - optimizer step and zero_grad
+          - logging and periodic checkpoint saving (supports FSDP FULL_STATE_DICT export)
+        Returns logs dictionary containing numeric metrics for this step.
+        """
+        start_t = time.time()
+        device = self.device
 
+        # read current step count (stored as tensor buffer)
+        steps = int(self.steps.item())
+
+        self.circle.train()
+
+        # logs aggregator for this step
+        logs = {}
+
+        # fetch next batch from infinite iterator (dl_iter was prepared by accelerator)
+        images, questions, answers = next(self.dl_iter)
+
+        device = self.device
+        images = images.to(device)
+        questions = list(questions)
+        answers = list(answers)
+
+        with self.accelerator.autocast():
+            if self.accelerator.state.deepspeed_plugin is not None:
+                if self.accelerator.mixed_precision == "bf16":
+                    images = images.bfloat16()
+            loss = self.circle(images, questions, answers, device)
+
+        self.accelerator.backward(loss)
+        accum_log(logs, {'loss': loss.item()})
+        if exists(self.max_grad_norm):
+            grad_norm = self.accelerator.clip_grad_norm_(self.circle.parameters(), self.max_grad_norm)
+        else:
+            grad_norm = self.accelerator.clip_grad_norm_(self.circle.parameters(), float('inf'))
+
+        self.optim.step()
+        self.optim.zero_grad()
+        self.print('{}: loss: {:4f}, Grad norm: {:.4f}, time: {:3f}s'.format(
+            steps, logs['loss'], grad_norm, time.time() - start_t))
+
+        # save model every so often
+        if not (steps % self.save_model_every) and steps != 0:
+            model = self.accelerator.unwrap_model(self.circle)
+            state_dict = self.accelerator.get_state_dict(model.visual_encoder, unwrap=False)
+            if self.is_main:
+                if self.train_gpt:
+                    model.gptModel.save_pretrained(os.path.join(self.gpt_results_folder, f'VGPT.{steps}'))
+                model_path = os.path.join(self.results_folder, f'VisionEncoder.{steps}.pt')
+                self.accelerator.save(state_dict, model_path)
+                self.print(f'{steps}: saving model to {str(self.results_folder)}')
+
+        self.steps += 1
+        return logs
 
     def train(self, log_fn=noop):
         """
@@ -313,7 +393,12 @@ class CIRCLETrainer(nn.Module):
         """
         while self.steps < self.num_train_steps:
             t = time.time()
-            logs = self.train_step()
+            if self.task == 'clip':
+                logs = self.clip_train_step()
+            elif self.task == 'report':
+                logs = self.report_train_step()
+            else:
+                raise ValueError('Invalid task')
             # user-provided logging function can handle logs (e.g., send to TensorBoard)
             log_fn(logs)
             # explicit garbage collection to reduce memory spikes in long-running loops
