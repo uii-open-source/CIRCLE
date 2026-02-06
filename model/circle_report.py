@@ -1,24 +1,7 @@
-from collections import OrderedDict
-import math
-import copy
 import os
-import random
-from contextlib import contextmanager
-from functools import partial, wraps
-from pathlib import Path
-
-import numpy as np
 import torch
-import torch.nn.functional as F
-from torch import nn, einsum
-from torch.utils.checkpoint import checkpoint
-from einops import rearrange, repeat, reduce
-from einops.layers.torch import Rearrange, Reduce
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import LoraConfig, TaskType, get_peft_model, PeftModel
+from torch import nn
 from safetensors.torch import load_file as safe_load_file
-# from contextlib import contextmanager
 
 from model.efficient_net import EffNet3D
 
@@ -41,8 +24,8 @@ class CIRCLEReport(nn.Module):
     def __init__(
         self,
         llm_hidden_size=2048,
-        gptTokenizer=None,
-        gptModel=None,
+        gpt_tokenizer=None,
+        gpt_model=None,
         train_gpt=False,
         **kwargs
     ):
@@ -61,8 +44,8 @@ class CIRCLEReport(nn.Module):
 
         self.visual_latent_layer = Mapper(1792, llm_hidden_size, mlp_depth=2, mlp_bias=True)
 
-        self.gptTokenizer = gptTokenizer
-        self.gptModel = gptModel
+        self.gpt_tokenizer = gpt_tokenizer
+        self.gpt_model = gpt_model
         self.train_gpt = train_gpt
 
         self.llm_loss_func = nn.CrossEntropyLoss()
@@ -95,37 +78,37 @@ class CIRCLEReport(nn.Module):
                     pt[key.replace("lora_A.weight", "lora_A.default.weight")] = pt.pop(key)
                 if "lora_B.weight" in key:
                     pt[key.replace("lora_B.weight", "lora_B.default.weight")] = pt.pop(key)
-            msg = self.gptModel.load_state_dict(pt, strict=False)
+            msg = self.gpt_model.load_state_dict(pt, strict=False)
             print("load llm done, ", msg)
 
-    def llm_forward(self, batchsize, device, question_list, answer_list, vision_feature, vision_fea_len):
+    def llm_forward(self, batch_size, device, question_list, answer_list, vision_feature, vision_fea_len):
         text_list = []
-        for i in range(batchsize):
-            text_list.append(question_list[i] + answer_list[i] + self.gptTokenizer.eos_token)
-        text_inputs = self.gptTokenizer(text_list, return_tensors="pt", padding=True, max_length=512, truncation=True)
+        for i in range(batch_size):
+            text_list.append(question_list[i] + answer_list[i] + self.gpt_tokenizer.eos_token)
+        text_inputs = self.gpt_tokenizer(text_list, return_tensors="pt", padding=True, max_length=512, truncation=True)
         text_tokens = text_inputs["input_ids"].to(device)
         attention_mask = text_inputs["attention_mask"].to(device)
 
         if self.train_gpt:
-            text_fea = self.gptModel.base_model.get_input_embeddings()(text_tokens)
+            text_fea = self.gpt_model.base_model.get_input_embeddings()(text_tokens)
         else:
-            text_fea = self.gptModel.get_input_embeddings()(text_tokens)
+            text_fea = self.gpt_model.get_input_embeddings()(text_tokens)
 
         llm_fea = torch.cat([vision_feature, text_fea], dim=1)
         attention_mask = torch.cat([torch.ones((text_fea.size(0), vision_fea_len)).to(device), attention_mask], dim=1)
 
-        llm_outputs = self.gptModel(inputs_embeds=llm_fea,
-                                    attention_mask=attention_mask,
-                                    output_hidden_states=False)
+        llm_outputs = self.gpt_model(inputs_embeds=llm_fea,
+                                     attention_mask=attention_mask,
+                                     output_hidden_states=False)
         shifted_prediction_scores = llm_outputs.logits[:, vision_fea_len:-1, :].contiguous()
         llm_labels = []
-        for i in range(batchsize):
-            question_input = self.gptTokenizer([question_list[i]], return_tensors="pt")
+        for i in range(batch_size):
+            question_input = self.gpt_tokenizer([question_list[i]], return_tensors="pt")
             pre_id = question_input["input_ids"].size(1)
             llm_labels_cur = text_tokens[i]
             end_id = llm_labels_cur.size(0) - 1
             for j in range(llm_labels_cur.size(0) - 1, -1, -1):
-                if llm_labels_cur[j] != self.gptTokenizer.pad_token_id:
+                if llm_labels_cur[j] != self.gpt_tokenizer.pad_token_id:
                     end_id = j
                     break
             llm_labels_cur[:pre_id] = -100
@@ -134,15 +117,15 @@ class CIRCLEReport(nn.Module):
         llm_labels = torch.stack(llm_labels, dim=0).contiguous()
         if self.train_gpt:
             llm_loss = self.llm_loss_func(
-                shifted_prediction_scores.view(-1, self.gptModel.base_model.config.vocab_size), llm_labels.view(-1))
+                shifted_prediction_scores.view(-1, self.gpt_model.base_model.config.vocab_size), llm_labels.view(-1))
         else:
-            llm_loss = self.llm_loss_func(shifted_prediction_scores.view(-1, self.gptModel.config.vocab_size),
+            llm_loss = self.llm_loss_func(shifted_prediction_scores.view(-1, self.gpt_model.config.vocab_size),
                                           llm_labels.view(-1))
         return llm_loss
 
     def apply_chat_template_for_no_think(self, prompt):
         messages = [{'role': 'user', 'content': prompt}]
-        text = self.gptTokenizer.apply_chat_template(
+        text = self.gpt_tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True,
@@ -152,14 +135,14 @@ class CIRCLEReport(nn.Module):
 
     def report_generation(self, vision_feature, text_list, device):
         vision_fea_len = vision_feature.size(1)
-        text_inputs = self.gptTokenizer(text_list, return_tensors="pt")
+        text_inputs = self.gpt_tokenizer(text_list, return_tensors="pt")
         text_tokens = text_inputs["input_ids"].to(device)
         attention_mask = text_inputs["attention_mask"].to(device)
-        text_fea = self.gptModel.get_input_embeddings()(text_tokens)
+        text_fea = self.gpt_model.get_input_embeddings()(text_tokens)
         llm_fea = torch.cat([vision_feature, text_fea], dim=1)
         pre_len = vision_fea_len
         attention_mask = torch.cat([torch.ones((text_fea.size(0), pre_len)).to(device), attention_mask], dim=1)
-        sample_outputs = self.gptModel.generate(
+        sample_outputs = self.gpt_model.generate(
                             inputs_embeds=llm_fea,
                             attention_mask=attention_mask,
                             do_sample=True,
@@ -173,7 +156,7 @@ class CIRCLEReport(nn.Module):
         text_outs = []
         for i, sample_output in enumerate(sample_outputs):
             sample_output = sample_output.data.cpu()
-            text_outs.append(self.gptTokenizer.decode(sample_output, skip_special_tokens=True))
+            text_outs.append(self.gpt_tokenizer.decode(sample_output, skip_special_tokens=True))
         answer = text_outs[0]
         return answer
 

@@ -22,6 +22,7 @@ def l2norm(t):
     """
     return F.normalize(t, dim=-1)
 
+
 # Function to load a model checkpoint, optionally removing "module." prefix
 def load_model_ckpt(model, ckpt_path):
     """

@@ -1,5 +1,4 @@
 import gc
-import numpy as np
 import os
 import time
 import torch
@@ -29,11 +28,13 @@ def exists(val):
     """
     return val is not None
 
+
 def noop(*args, **kwargs):
     """
     No-op function used as default log_fn in train() so user can optionally pass a logging callback.
     """
     pass
+
 
 def cycle(dl):
     """
@@ -44,12 +45,14 @@ def cycle(dl):
         for data in dl:
             yield data
 
+
 def yes_or_no(question):
     """
     Helper to get a yes/no answer from stdin. Not used in current code but kept for interactive prompts.
     """
     answer = input(f'{question} (y/n) ')
     return answer.lower() in ('yes', 'y')
+
 
 def accum_log(log, new_logs):
     """
@@ -60,6 +63,7 @@ def accum_log(log, new_logs):
         old_value = log.get(key, 0.)
         log[key] = old_value + new_value
     return log
+
 
 # Trainer inspired by CT-CLIP (https://github.com/ibrahimethemhamamci/CT-CLIP)
 class CIRCLETrainer(nn.Module):
@@ -83,13 +87,13 @@ class CIRCLETrainer(nn.Module):
         batch_size,
         tokenizer=None,  # for clip
         train_gpt=False,  # for report task
-        lr = 1.25e-5,
-        wd = 0.,
-        max_grad_norm = 0.5,
-        save_results_every = 1000,
-        save_model_every = 1000 ,
-        results_folder = '/results',
-        num_workers = 8,
+        lr=1.25e-5,
+        wd=0.,
+        max_grad_norm=0.5,
+        save_results_every=1000,
+        save_model_every=1000,
+        results_folder='/results',
+        num_workers=8,
         accelerate_kwargs: dict = dict()
     ):
         """
@@ -127,7 +131,7 @@ class CIRCLETrainer(nn.Module):
 
         # model and tokenizer references
         self.circle = circle_model
-        self.tokenizer=tokenizer
+        self.tokenizer = tokenizer
        
         # track training steps in a registered buffer so the state can be moved with the module if needed
         self.register_buffer('steps', torch.Tensor([0]))
@@ -143,7 +147,7 @@ class CIRCLETrainer(nn.Module):
 
         # gradient clipping value
         self.max_grad_norm = max_grad_norm
-        self.lr=lr
+        self.lr = lr
 
         # initialize dataset (loads CSVs and prepares sample list)
         if self.task == 'clip':
@@ -158,11 +162,11 @@ class CIRCLETrainer(nn.Module):
             self.ds,
             num_workers=num_workers,
             batch_size=self.batch_size,
-            shuffle = True,
+            shuffle=True,
         )
 
         # prepare infinite iterator over the dataloader (so train_step can call next() directly)
-        self.dl_iter=cycle(self.dl)
+        self.dl_iter = cycle(self.dl)
 
         # get device from accelerator (handles CPU / single-GPU / multi-GPU placement)
         self.device = self.accelerator.device
@@ -228,7 +232,6 @@ class CIRCLETrainer(nn.Module):
         """
         self.accelerator.print(msg)
 
-
     @property
     def is_main(self):
         """
@@ -249,7 +252,6 @@ class CIRCLETrainer(nn.Module):
         Returns logs dictionary containing numeric metrics for this step.
         """
         start_t = time.time()
-        device = self.device
 
         # read current step count (stored as tensor buffer)
         steps = int(self.steps.item())
@@ -263,7 +265,7 @@ class CIRCLETrainer(nn.Module):
         image, text, label = next(self.dl_iter)
 
         # move tensors to device
-        device=self.device
+        device = self.device
         image = image.to(device)
         label = label.float().to(device)
 
@@ -271,7 +273,8 @@ class CIRCLETrainer(nn.Module):
         text = list(text)
         # tokenizer returns a dict with input_ids, attention_mask, etc. We ask it to return PyTorch tensors,
         # pad/truncate to max_length=512 and then move the tensors to device
-        text_tokens=self.tokenizer(text, return_tensors="pt", padding="max_length", truncation=True, max_length=512).to(device)
+        text_tokens = self.tokenizer(text, return_tensors="pt", padding="max_length", truncation=True, max_length=512
+                                     ).to(device)
         
         # Mixed precision forward: accelerator.autocast ensures operations run in fp16 where safe
         with self.accelerator.autocast():
@@ -335,7 +338,6 @@ class CIRCLETrainer(nn.Module):
         Returns logs dictionary containing numeric metrics for this step.
         """
         start_t = time.time()
-        device = self.device
 
         # read current step count (stored as tensor buffer)
         steps = int(self.steps.item())
@@ -392,7 +394,6 @@ class CIRCLETrainer(nn.Module):
         Will also call garbage collection and empty CUDA cache between steps to reduce memory fragmentation.
         """
         while self.steps < self.num_train_steps:
-            t = time.time()
             if self.task == 'clip':
                 logs = self.clip_train_step()
             elif self.task == 'report':
