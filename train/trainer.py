@@ -3,18 +3,14 @@ import os
 import time
 import torch
 
-# Accelerate provides convenient training tools across multiple GPUs/distributed/mixed precision, etc
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs
 from accelerate.utils import InitProcessGroupKwargs
 from datetime import timedelta
 from torch import nn
 from torch.utils.data import DataLoader
-
-# Used to export the complete state dictionary from FullySarddDataParallel (FSDP) (can be offloaded to CPU when saving GPU memory)
 from torch.distributed.fsdp.fully_sharded_data_parallel import FullStateDictConfig, StateDictType
 
-# Customize datasets and optimizer to obtain functions
 from train.dataset import CIRCLEDataset, CIRCLEReportDataset
 from train.utils import get_optimizer
 from model.circle import CIRCLE
@@ -99,10 +95,11 @@ class CIRCLETrainer(nn.Module):
         """
         Constructor arguments:
           - circle_model: instance of the CIRCLE model (image+text)
-          - tokenizer: HuggingFace tokenizer for text batching
           - data_folder, label_csv, lung_center_csv, report_csv: dataset inputs
           - num_train_steps: total training steps to run
           - batch_size: batch size passed to DataLoader
+          - tokenizer: HuggingFace tokenizer for text batching
+          - train_gpt: whether train LLM model
           - lr, wd: optimizer hyperparameters
           - max_grad_norm: gradient clipping threshold
           - save_results_every / save_model_every: periodic save frequencies (in steps)
@@ -327,14 +324,14 @@ class CIRCLETrainer(nn.Module):
 
     def report_train_step(self):
         """
-        Execute a single training step:
-          - fetch batch (image, text, label)
-          - tokenize text with tokenizer -> move to device
+        Execute a single training step for report generation model:
+          - fetch batch (images, questions, answers)
+          - move images to device and convert questions/answers to lists
           - forward pass through CIRCLE model (under autocast for mixed precision)
           - backward (accelerator.backward)
-          - optional gradient clipping
+          - gradient clipping
           - optimizer step and zero_grad
-          - logging and periodic checkpoint saving (supports FSDP FULL_STATE_DICT export)
+          - logging and periodic checkpoint saving (saves visual encoder and optionally GPT model)
         Returns logs dictionary containing numeric metrics for this step.
         """
         start_t = time.time()
@@ -350,11 +347,13 @@ class CIRCLETrainer(nn.Module):
         # fetch next batch from infinite iterator (dl_iter was prepared by accelerator)
         images, questions, answers = next(self.dl_iter)
 
+        # move tensors to device and convert strings to lists
         device = self.device
         images = images.to(device)
         questions = list(questions)
         answers = list(answers)
 
+        # Mixed precision forward pass with special handling for DeepSpeed
         with self.accelerator.autocast():
             if self.accelerator.state.deepspeed_plugin is not None:
                 if self.accelerator.mixed_precision == "bf16":
@@ -363,11 +362,13 @@ class CIRCLETrainer(nn.Module):
 
         self.accelerator.backward(loss)
         accum_log(logs, {'loss': loss.item()})
+        # Gradient clipping (performed regardless of max_grad_norm setting)
         if exists(self.max_grad_norm):
             grad_norm = self.accelerator.clip_grad_norm_(self.circle.parameters(), self.max_grad_norm)
         else:
             grad_norm = self.accelerator.clip_grad_norm_(self.circle.parameters(), float('inf'))
 
+        # optimizer step updates parameters (optimizer is prepared by accelerator)
         self.optim.step()
         self.optim.zero_grad()
         self.print('{}: loss: {:4f}, Grad norm: {:.4f}, time: {:3f}s'.format(
@@ -375,15 +376,21 @@ class CIRCLETrainer(nn.Module):
 
         # save model every so often
         if not (steps % self.save_model_every) and steps != 0:
+            # unwrap the model from accelerator wrapping to access individual components
             model = self.accelerator.unwrap_model(self.circle)
+            # get state dict of the visual encoder component
             state_dict = self.accelerator.get_state_dict(model.visual_encoder, unwrap=False)
             if self.is_main:
+                # Save GPT model if training GPT component is enabled
                 if self.train_gpt:
                     model.gptModel.save_pretrained(os.path.join(self.gpt_results_folder, f'VGPT.{steps}'))
+                # construct model path for visual encoder
                 model_path = os.path.join(self.results_folder, f'VisionEncoder.{steps}.pt')
+                # accelerator.save handles saving in distributed environment
                 self.accelerator.save(state_dict, model_path)
                 self.print(f'{steps}: saving model to {str(self.results_folder)}')
 
+        # increment step counter buffer
         self.steps += 1
         return logs
 

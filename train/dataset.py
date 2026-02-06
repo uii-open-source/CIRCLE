@@ -2,7 +2,7 @@ import math
 import numpy as np
 import os
 import pandas as pd
-import SimpleITK as sitk  # SimpleITK for medical image I/O and processing
+import SimpleITK as sitk
 import torch
 from torch.utils.data import Dataset
 
@@ -264,6 +264,11 @@ class CIRCLEDataset(Dataset):
 
 
 class CIRCLEReportDataset(Dataset):
+    """
+    PyTorch Dataset for CIRCLE-report project.
+    Loads CT images, labels, lung center coordinates, and report text.
+    Applies cropping, normalization, and augmentation.
+    """
     def __init__(self, data_folder, label_csv, lung_center_csv, report_csv):
         self.data_folder = data_folder
         # Load mapping from image name to label vector
@@ -308,6 +313,13 @@ class CIRCLEReportDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, index):
+        """
+        Return one sample for PyTorch DataLoader
+        Returns:
+            image_tensor: torch.FloatTensor (1, D, H, W)
+            question: question string
+            answer: answer string
+        """
         image_path, input_text, lung_center, labels = self.samples[index]
         image_tensor = prepare_image(image_path, lung_center)
         description, conclusion = input_text

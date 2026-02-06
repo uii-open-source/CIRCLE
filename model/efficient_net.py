@@ -13,7 +13,7 @@ import math
 import torch.utils.checkpoint as checkpoint
 
 # Define which models are available when importing *
-__all__ = ['effnetv2_s', 'effnetv2_m', 'effnetv2_l', 'effnetv2_xl']
+__all__ = ['effnetv2_s', 'effnetv2_m', 'effnetv2_l', 'effnetv2_xl', 'EffNet3D']
 
 
 def _make_divisible(v, divisor, min_value=None):
