@@ -1,4 +1,6 @@
 torch==2.5.1
+torchaudio==2.5.1
+torchvision==0.20.1
 SimpleITK==2.5.2
 pandas==2.2.3
 numpy==1.26.4
