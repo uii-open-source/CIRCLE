@@ -383,7 +383,7 @@ class CIRCLETrainer(nn.Module):
             if self.is_main:
                 # Save GPT model if training GPT component is enabled
                 if self.train_gpt:
-                    model.gptModel.save_pretrained(os.path.join(self.gpt_results_folder, f'VGPT.{steps}'))
+                    model.gpt_model.save_pretrained(os.path.join(self.gpt_results_folder, f'VGPT.{steps}'))
                 # construct model path for visual encoder
                 model_path = os.path.join(self.results_folder, f'VisionEncoder.{steps}.pt')
                 # accelerator.save handles saving in distributed environment

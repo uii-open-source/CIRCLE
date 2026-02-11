@@ -44,8 +44,8 @@ gptModel.print_trainable_parameters()
 # Initialize the CIRCLE report model with specified parameters
 circle_report_model = CIRCLEReport(
     llm_hidden_size=llm_hidden_size,  # Hidden size from the loaded config
-    gptTokenizer=gptTokenizer,  # Tokenizer instance
-    gptModel=gptModel,  # Language model with LoRA applied
+    gpt_tokenizer=gptTokenizer,  # Tokenizer instance
+    gpt_model=gptModel,  # Language model with LoRA applied
     train_gpt=True,  # Flag to indicate whether to train the GPT component
 )
 

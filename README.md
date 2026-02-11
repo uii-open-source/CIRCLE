@@ -103,17 +103,49 @@ Here, we provide an example report（*Index 0002*）from the open-source dataset
 - `train/`: training codes for CIRCLE model.
 - `test/`: evaluation reproduction codes for CIRCLE model.
 
+
+
+
+
 ## Installation
-Clone this repo.
+
+### Option 1: Local Setup (Recommended for Development)
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/uii-open-source/CIRCLE
+   cd CIRCLE/
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+   ```
+
+2. Install the required dependencies (we recommend using a virtual environment):
+   ```bash
+   pip install -r requirements.txt
+   ```
+   Specific package versions are listed in `requirements.txt`.
+
+---
+
+### Option 2: Docker (Recommended for Quick Deployment)
+
+We provide both a `Dockerfile` for custom builds and a pre-built image on [Docker Hub](https://hub.docker.com/r/cjh1232009/circle) for immediate use.
+
+#### Use the pre-built image from Docker Hub (quickest start)
+Pull and run the official image:
 ```bash
-git clone https://github.com/uii-open-source/CIRCLE
-cd CIRCLE/
+docker run --gpus all --shm-size 400G --privileged=true -it cjh1232009/circle:latest
 ```
-Please install dependencies (e.g., pytorch, transformers) by
+
+#### Or build your own image locally
+If you prefer to build from source:
 ```bash
-pip install -r requirements.txt
+docker build -t circle .
+docker run --gpus all --shm-size 400G --privileged=true -it circle
 ```
-The specific types and versions of the required software can be found in the `requirements.txt` file. 
+
+
+> 💡 **Tip**: The pre-built image includes all dependencies and is ready to run—no need to clone the repo unless you plan to modify the code.
+
 
 
 ## Training
