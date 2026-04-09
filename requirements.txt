@@ -1,0 +1,13 @@
+torch==2.5.1
+SimpleITK==2.5.2
+pandas==2.2.3
+numpy==1.26.4
+accelerate==1.4.0
+transformers==4.51.0
+einops==0.8.0
+tqdm==4.66.4
+peft==0.15.2
+safetensors==0.5.2
+easydict==1.13
+scikit-learn==1.6.1
+matplotlib==3.10.0
