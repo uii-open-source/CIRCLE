@@ -9,6 +9,61 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Default prompt template for disease label extraction; {report_text} will be filled at runtime
 DEFAULT_PROMPT_TEMPLATE = "请提取报告中的疾病标签。报告为：{report_text}"
 
+# Chinese-to-English mapping for the 37 label categories.
+# The model output is expected to contain Chinese label names, which are mapped to English CSV columns during post-processing.
+LABEL_MAPPINGS = [
+    ("肺部阴影", "Pulmonary opacity"),
+    ("结节/肿块", "Pulmonary nodule/mass"),
+    ("肺内钙化", "Pulmonary calcification"),
+    ("透亮影", "Lucency"),
+    ("肺实变", "Consolidation"),
+    ("肺炎", "Pulmonary inflammation"),
+    ("肺结核", "Tuberculosis"),
+    ("间质改变", "Interstitial lung disease"),
+    ("肺不张", "Atelectasis"),
+    ("肺水肿", "Pulmonary edema"),
+    ("肺气肿", "Emphysema"),
+    ("肺大泡/肺气囊腔", "Bled/bulla/pneumatocele"),
+    ("纵隔肿块", "Mediastinal mass"),
+    ("纵隔钙化", "Mediastinal calcification"),
+    ("纵隔淋巴结肿大", "Mediastinal lymphadenopathy"),
+    ("气管扩张/增厚", "Bronchiectasis/tracheal thickening"),
+    ("气管憩室", "Tracheal diverticula"),
+    ("支气管炎", "Bronchitis"),
+    ("心包积液", "Pericardial effusion"),
+    ("心包增厚", "Pericardial thickening"),
+    ("心肥大", "Cardiomegaly"),
+    ("心脏及血管钙化", "Cardiac and vascular calcification"),
+    ("肺动脉增粗", "Pulmonary artery dilatation"),
+    ("肺动脉高压", "Pulmonary arterial hypertension"),
+    ("主动脉增粗", "Aortic dilatation"),
+    ("胸腔积液", "Pleural effusion"),
+    ("气胸", "Pneumothorax"),
+    ("胸膜钙化", "Pleural calcification"),
+    ("胸膜增厚", "Pleural thickening"),
+    ("胸膜胸壁结节", "Pleural and chest wall nodule/mass"),
+    ("食管裂孔疝", "Hiatal hernia"),
+    ("食管增厚", "Esophageal wall thickening"),
+    ("骨折", "Fracture"),
+    ("骨质破坏", "Bone destruction"),
+    ("骨肿瘤", "Bone tumor"),
+    ("术后", "Postoperative"),
+    ("设备植入", "Support device"),
+]
+
+# Fixed English label column order used in the output CSV, consistent with LABEL_MAPPINGS.
+ENGLISH_LABEL_COLUMNS = [english_name for _, english_name in LABEL_MAPPINGS]
+
+
+def parse_label_text_to_binary(label_text):
+    """Convert the generated label string to 37 binary indicators with English column names."""
+    label_text = str(label_text).strip()
+    # Mark an English label column as 1 whenever its Chinese label name appears in the generated text.
+    return {
+        english_name: int(chinese_name in label_text)
+        for chinese_name, english_name in LABEL_MAPPINGS
+    }
+
 
 def load_labeler_model(model_name, gpu_id=0):
     """
@@ -86,7 +141,9 @@ def run_labeler(
     Args:
         model_name (str): Labeler model path.
         report_text_csv (str): CSV path containing a `report` column.
-        output_csv (str): Output CSV path; result contains `report` and `label` columns.
+            The `report` text is expected to follow the format:
+            "影像所见：{}\n影像所见：{}"
+        output_csv (str): Output CSV path; result contains `report`, `label`, and 37 English binary label columns.
         gpu_id (int): GPU id for inference.
     """
     # Load labeler model and tokenizer
@@ -106,14 +163,16 @@ def run_labeler(
             model=model,
             report_text=report_text,
         )
-        output_records.append({
+        output_record = {
             "report": report_text,
             "label": label_text,
-        })
+        }
+        output_record.update(parse_label_text_to_binary(label_text))
+        output_records.append(output_record)
 
     # Save results to output CSV
     os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
-    pd.DataFrame(output_records, columns=["report", "label"]).to_csv(
+    pd.DataFrame(output_records, columns=["report", "label", *ENGLISH_LABEL_COLUMNS]).to_csv(
         output_csv,
         index=False,
         encoding="utf-8-sig",

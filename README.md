@@ -626,7 +626,7 @@ Default behavior:
 ### Input / Output Format
 
 - Input CSV (`report_text_csv`): must contain a column named `report`.
-- Output CSV (`output_csv`): contains two columns: `report` and `label`.
+- Output CSV (`output_csv`): contains `report`, `label`, and 37 binary label columns.
 
 ## License
 All components of CIRCLE, including the released models and datasets, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
