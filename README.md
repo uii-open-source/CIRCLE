@@ -584,6 +584,191 @@ Output:
 - Training logs are saved under `save_dir`.
 - Checkpoints are saved under `save_dir/.../checkpoints/`.
 
+
+### 9. Complex Clinical Support Tasks
+
+This repository currently includes two downstream clinical support tasks built on top of CIRCLE features:
+
+- **RWMA prediction**: Regional Wall Motion Abnormality prediction from global CT features and local heart radiomics.
+- **MCOP prediction**: Multi-modality Clinical Outcome Prediction from global CT features and clinical text embeddings.
+
+Both tasks use patient-level CSV files indexed by `image_name` (or `file_name`, which the scripts automatically normalize) and expect CT volumes in the same case-folder format used throughout this repository.
+
+#### 9.1 Data Structure
+
+Prepare the following files under `data/`:
+
+```text
+data/
+├── circle_features_RWMA.csv
+├── circle_features_MCOP.csv
+├── radiomics_features_RWMA.csv
+├── labels_RWMA.csv
+├── labels_MCOP.csv
+├── text_MCOP.csv
+├── image/
+│   ├── image1/
+│   │   └── CT.nii.gz
+│   ├── image2/
+│   │   └── CT.nii.gz
+│   └── ...
+└── mask/
+   ├── image1/
+   │   └── heart_mask.nii.gz
+   ├── image2/
+   │   └── heart_mask.nii.gz
+   └── ...
+```
+
+File description:
+
+- `circle_features_RWMA.csv`: global CT image features for RWMA prediction. Each row corresponds to one case and contains CIRCLE-extracted global features (`feature_*`).
+- `radiomics_features_RWMA.csv`: local heart radiomics features for RWMA prediction. Each row corresponds to one case and contains PyRadiomics features (`original_*`).
+- `labels_RWMA.csv`: RWMA binary labels (`0 = non-RWMA`, `1 = RWMA`).
+- `circle_features_MCOP.csv`: global CT image features for MCOP prediction.
+- `text_MCOP.csv`: clinical text table for MCOP. The current `train/BERT_train.py` expects at least `image_name` and `text` columns.
+- `labels_MCOP.csv`: MCOP binary labels (`0 = negative/favorable outcome`, `1 = positive/adverse outcome`).
+- `data/image/<image_name>/CT.nii.gz`: CT volume for each patient.
+- `data/mask/<image_name>/heart_mask.nii.gz`: heart segmentation mask aligned with the corresponding CT volume.
+
+Please keep patient identifiers consistent across feature CSVs, labels, images, and masks.
+
+#### 9.2 CIRCLE-based RWMA Prediction
+
+The RWMA task combines:
+
+1. **Global CT features** extracted by CIRCLE from the full CT volume.
+2. **Local heart radiomics** extracted from CIRCLE-based heart segmentation masks.
+3. **XGBoost classification** for binary RWMA prediction.
+
+Required inputs:
+
+- `data/circle_features_RWMA.csv`: global 512-d CIRCLE features.
+- `data/radiomics_features_RWMA.csv`: local 107-d radiomics features.
+- `data/labels_RWMA.csv`: binary RWMA labels.
+
+##### 9.2.1 Data Generation
+
+Step 1. **Heart segmentation**
+
+Run the CIRCLE segmentation pipeline on CT volumes in `data/image/...` and save heart masks to `data/mask/...`.
+
+Step 2. **Local radiomics extraction**
+
+The current `train/heart_radiomics_extraction.py` uses hard-coded paths. Before running it, update the following values inside the script:
+
+```python
+image_dir = "data/image"
+mask_dir = "data/mask"
+output_csv = "data/radiomics_features_RWMA.csv"
+```
+
+Then run:
+
+```bash
+python train/heart_radiomics_extraction.py
+```
+
+This script uses PyRadiomics to extract first-order, shape, GLCM, GLRLM, GLSZM, GLDM, and NGTDM features from each heart mask.
+
+Step 3. **Global feature preparation**
+
+Generate `data/circle_features_RWMA.csv` with the CIRCLE model from the full CT volumes. The prediction script expects feature columns named `feature_*` plus one identifier column.
+
+Step 4. **Label preparation**
+
+Prepare `data/labels_RWMA.csv` with one identifier column (`image_name` or `file_name`) and one binary label column (`label` or `labels`).
+
+##### 9.2.2 Training and Evaluation
+
+Run the full RWMA prediction pipeline with:
+
+```bash
+python test/run_RWMA_prediction.py
+```
+
+Current outputs of the open-source script:
+
+- Console: test-set AUC.
+- Console: relative contribution percentages of local radiomics and global CIRCLE features.
+- File: `rwma_prediction_model.pkl` containing the trained XGBoost model, scaler, and feature names.
+
+#### 9.3 CIRCLE-based MCOP
+
+The MCOP task integrates multimodal clinical data for binary clinical outcome prediction with three settings:
+
+1. **Image-Only** using CIRCLE global CT features.
+2. **Text-Only** using MedBERT text embeddings.
+3. **Hybrid** using concatenated image and text features.
+
+Required inputs:
+
+- `data/circle_features_MCOP.csv`: global 512-d CIRCLE CT features.
+- `data/text_MCOP.csv`: clinical text input for BERT encoding.
+- `data/labels_MCOP.csv`: binary clinical outcome labels.
+
+##### 9.3.1 Pre-trained MedBERT
+
+For text modeling, prepare a MedBERT checkpoint directory such as:
+
+```text
+/path/to/medbert_base_wwm/
+├── config.json
+├── pytorch_model.bin
+├── vocab.txt
+└── ...
+```
+
+One public checkpoint that matches this workflow is available at:
+
+- https://huggingface.co/trueto/medbert-kd-chinese/tree/main
+
+##### 9.3.2 Text Feature Generation
+
+The current `train/BERT_train.py` uses hard-coded local paths. Before running it, update the following values near the top of `main()`:
+
+```python
+model_path = "/path/to/medbert_base_wwm"
+text_csv_path = "data/text_MCOP.csv"
+labels_csv_path = "data/labels_MCOP.csv"
+```
+
+Then run:
+
+```bash
+python train/BERT_train.py
+```
+
+What this script does:
+
+- loads and merges `text_MCOP.csv` and `labels_MCOP.csv` by patient ID;
+- fine-tunes MedBERT on the MCOP binary classification task;
+- extracts 768-d text embeddings for all samples;
+- saves the extracted features for downstream multimodal prediction.
+
+Current outputs of the open-source script:
+
+- `all_samples_bert_features.csv`: extracted text embeddings with columns `image_name` and `BERT_feature_*`.
+- `fine_tuned_medbert/pytorch_model.bin`: fine-tuned model weights.
+- `training_summary.csv`: training summary.
+- `validation_set_predictions.csv`: validation-set predictions.
+
+##### 9.3.3 Training and Evaluation
+
+After `all_samples_bert_features.csv` has been generated in the repository root, run:
+
+```bash
+python test/run_MCOP_prediction.py
+```
+
+Current outputs of the open-source script:
+
+- Console: AUC for Image-Only, Text-Only, and Hybrid models.
+- Console: relative contribution percentages of image and text features in the Hybrid model.
+
+The current open-source `test/run_MCOP_prediction.py` does not save model checkpoints or prediction CSVs by default.
+
+
 ## CIRCLE-Labeler
 
 `CIRCLE-Labeler` is the report-to-label extraction module in this repository.
