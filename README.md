@@ -102,20 +102,7 @@ Here, we provide an example report from the open-source dataset, including both 
 - `figures/`: figures used in this README.
 - `model/`: model definitions, including `CIRCLE` (`circle.py`) and `CIRCLEReport` (`circle_report.py`).
 - `train/`: training entry scripts and trainer/dataset utilities.
-   - `train_circle.py`: CIRCLE (CLIP) training.
-   - `train_circle_report.py`: CIRCLE-Report training.
-   - `train_circle_vqa.py`: CIRCLE-VQA training.
-   - `train_circle_classification.py`: CIRCLE-Clinical-Classification training.
 - `test/`: inference/evaluation scripts.
-   - `run_cls.py`: classification inference (current demo script outputs 4 representative classes).
-   - `run_cls_prompt.py`: prompt-based zero-shot classification.
-   - `run_knn.py`: KNN-based zero-shot classification / screening.
-   - `run_retrieval.py`: cross-modal retrieval.
-   - `run_report_generation.py`: report generation inference.
-   - `run_labeler.py`: report-to-label extraction.
-
-
-
 
 
 ## Installation
