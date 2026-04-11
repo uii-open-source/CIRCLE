@@ -39,9 +39,9 @@ def extract_features(image_path, mask_path, extractor):
 
 def main():
     # Configure paths
-    image_dir = r"data\image"
-    mask_dir = r"data\mask"
-    output_csv = r"data\radiomics_features_RWMA.csv"
+    image_dir = r"data/image"
+    mask_dir = r"data/mask"
+    output_csv = r"data/radiomics_features_RWMA.csv"
     
     # Configure PyRadiomics parameters
     params = {
