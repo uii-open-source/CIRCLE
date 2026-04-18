@@ -23,7 +23,7 @@ Developed through a collaboration between 15 Chinese hospitals and United Imagin
 * **Broad downstream clinical utility**: strong transfer across zero-shot diagnosis, patient-level screening, retrieval, VQA, and competitive segmentation transfer.
 * **Clinically validated human-AI collaboration**: improved diagnostic safety/quality and meaningful reporting-time reduction in radiologist workflows.
 <p align="center">
-  <img src="figures/circle.jpg" width="85%">
+  <img src="figures/CIRCLE.jpg" width="85%">
 </p>
 
 ## News
