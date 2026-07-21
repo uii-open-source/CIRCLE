@@ -764,15 +764,28 @@ The current open-source `test/run_MCOP_prediction.py` does not save model checkp
 
 - The current labeler model is obtained by fine-tuning **Qwen3-1.7B** on approximately **400,000** chest CT report samples.
 - The model has been open-sourced at: [https://huggingface.co/uii-open-source/CIRCLE](https://huggingface.co/uii-open-source/CIRCLE)
+- We provide two versions of CIRCLE-Labeler: a Chinese model for Chinese reports and an English model for English reports. Select the corresponding version with `--model_language zh` or `--model_language en`.
 
 ### Usage
 
-Run label extraction with a CSV containing a `report` column:
+Run label extraction with a Chinese model and a CSV containing a `report` column:
 
 ```bash
 python test/run_labeler.py \
    --model_name /path/to/labeler_model \
+   --model_language zh \
    --report_text_csv /path/to/report_text.csv \
+   --output_csv /path/to/output_label.csv \
+   --gpu_id 0
+```
+
+For an English version model, set `model_language` to `en`:
+
+```bash
+python test/run_labeler.py \
+   --model_name /path/to/english_labeler_model \
+   --model_language en \
+   --report_text_csv /path/to/english_report_text.csv \
    --output_csv /path/to/output_label.csv \
    --gpu_id 0
 ```
@@ -787,6 +800,7 @@ python test/run_labeler.py \
 
 Arguments:
 - `model_name`: local model path or model id.
+- `model_language`: labeler model language, either `zh` or `en` (default: `zh`).
 - `report_text_csv`: input CSV path.
 - `output_csv`: output CSV path.
 - `gpu_id`: GPU index used for inference.
@@ -794,11 +808,13 @@ Arguments:
 Default behavior:
 - If `--report_text_csv` is omitted, the script uses `data/report_text_test.csv`.
 - If `--output_csv` is omitted, the script saves to `output/label.csv`.
+- If `--model_language` is omitted, the script uses the Chinese prompt and Chinese label matching (`zh`).
 
 ### Input / Output Format
 
-- Input CSV (`report_text_csv`): must contain a column named `report`.
-- Output CSV (`output_csv`): contains `report`, `label`, and 37 binary label columns.
+- Input CSV (`report_text_csv`): must contain a column named `report`. The report language should match the selected model language.
+- Model output: the model should emit Chinese label names in `zh` mode or English label names in `en` mode.
+- Output CSV (`output_csv`): contains `report`, `label`, and the same 37 English-named binary label columns in both modes.
 
 ## License
 All components of CIRCLE, including the released models and datasets, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
