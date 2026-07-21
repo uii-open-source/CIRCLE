@@ -1,7 +1,7 @@
-from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModel
 # Import HuggingFace Transformers modules:
-# BertTokenizer: used to convert text into token IDs suitable for BERT
-# BertModel: the pre-trained BERT model for text embeddings
+# AutoTokenizer: selects the tokenizer class from the model configuration
+# AutoModel: selects the base model class from the model configuration
 
 from model.circle import CIRCLE
 # Import CIRCLE model class, which implements multi-modal (CT + text) contrastive learning
@@ -9,13 +9,13 @@ from model.circle import CIRCLE
 from train.trainer import CIRCLETrainer
 # Import trainer class that handles the training loop, data loading, loss computation, and saving
 
-# Initialize the BERT tokenizer from a pre-trained model path
+# Initialize the tokenizer from a pre-trained model path
 # Tokenizer is used to convert report text (description + conclusion) into token IDs
-tokenizer = BertTokenizer.from_pretrained('/path/to/circle/text_model/nlp_roberta_backbone_base_std')
+tokenizer = AutoTokenizer.from_pretrained('/path/to/circle/text_model/nlp_roberta_backbone_base_std')
 
-# Initialize the BERT model from the same pre-trained path
+# Initialize the text model from the same pre-trained path
 # This model outputs contextualized embeddings for input tokens
-text_encoder = BertModel.from_pretrained("/path/to/circle/text_model/nlp_roberta_backbone_base_std")
+text_encoder = AutoModel.from_pretrained("/path/to/circle/text_model/nlp_roberta_backbone_base_std")
 
 
 # Initialize the CIRCLE model

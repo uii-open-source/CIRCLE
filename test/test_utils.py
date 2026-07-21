@@ -3,7 +3,7 @@ import pandas as pd
 import SimpleITK as sitk
 import torch
 import torch.nn as nn
-from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModel
 
 from model.circle import CIRCLE
 
@@ -18,11 +18,11 @@ def load_model(vision_encoder_dir, text_encoder_dir, num_classes=4):
         num_classes (int): Number of classes for classification.
 
     Returns:
-        tuple: A tuple containing the CIRCLE model and BERT tokenizer.
+        tuple: A tuple containing the CIRCLE model and tokenizer.
     """
-    # Initialize BERT tokenizer and model for text encoding
-    tokenizer = BertTokenizer.from_pretrained(text_encoder_dir)
-    text_encoder = BertModel.from_pretrained(text_encoder_dir)
+    # Initialize the tokenizer and model from their configured architecture
+    tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
+    text_encoder = AutoModel.from_pretrained(text_encoder_dir)
 
     # Initialize the CIRCLE model
     circle_model = CIRCLE(
@@ -258,4 +258,3 @@ def encode_text(
             text_features[image_name] = text_feature.detach().cpu()[0].numpy()
 
     return text_features
-

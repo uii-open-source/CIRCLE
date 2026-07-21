@@ -152,15 +152,22 @@ docker run --gpus all --shm-size 400G --privileged=true -it circle
 
 ## Training & Evaluation by Task
 
+### CIRCLE Model Variants
+
+We provide both Chinese and English versions of the CIRCLE CLIP model. For the English version, the Chinese reports in the training set were translated into English using **DeepSeek-V4 Flash**. The English version shares the same image encoder as the Chinese version and uses [RadBERT-RoBERTa-4m](https://huggingface.co/zzxslp/RadBERT-RoBERTa-4m) as its text encoder.
+
+Both versions can be used for downstream testing and fine-tuning. When using the English model for text-dependent tasks, use the corresponding English text encoder together with English reports or prompts; the image-side configuration remains unchanged.
+
 ### 1. CIRCLE（CLIP Model）Training
 
 Before training `train/train_circle.py`, prepare:
 
-1. **Text encoder init** (e.g., Chinese RoBERTa Base):
-   - https://www.modelscope.cn/models/iic/nlp_roberta_backbone_base_std
+1. **Text encoder initialization**:
+   - Chinese version: [Chinese RoBERTa Base](https://www.modelscope.cn/models/iic/nlp_roberta_backbone_base_std)
+   - English version: [RadBERT-RoBERTa-4m](https://huggingface.co/zzxslp/RadBERT-RoBERTa-4m)
 
-   You can also initialize from the open-sourced CIRCLE text encoder for continued training on your own dataset.
-   The CIRCLE text encoder has been pre-trained on over 400,000 radiology reports and is typically a stronger initialization than generic backbones.
+   You can also initialize from the corresponding open-sourced Chinese or English CIRCLE text encoder for continued training on your own dataset.
+   The CIRCLE text encoders have been trained on over 400,000 radiology reports and are typically a stronger initialization than generic backbones.
 2. **Dataset in CIRCLE-ZS20K format**:
    - image folder: `/path/to/image/<image_name>/CT.nii.gz`
    - label csv: `/path/to/label/label.csv`
@@ -206,7 +213,7 @@ Based on our training experience, using our hardware configuration, training the
 
 ### 2. Supervised Classification with CIRCLE
 
-We have open-sourced CIRCLE image/text encoders at:
+We have open-sourced both Chinese and English versions of the CIRCLE image/text encoders at:
 - https://huggingface.co/uii-open-source/CIRCLE
 
 Our supervised classification model supports 37 thoracic abnormality categories.
