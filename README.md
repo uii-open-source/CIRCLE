@@ -763,6 +763,214 @@ Current outputs of the open-source script:
 The current open-source `test/run_MCOP_prediction.py` does not save model checkpoints or prediction CSVs by default.
 
 
+### 10. ReXGroundingCT Prompt-based Segmentation (Prompt-Seg)
+
+CIRCLE-Prompt-Seg is a text-guided 3D CT lesion segmentation pipeline. Given a raw
+non-contrast CT volume and a free-text radiology-style prompt describing a target
+finding (e.g. "pulmonary nodule in right upper lobe measuring 1.2 cm"), the model
+outputs a binary segmentation mask that spatially localizes the finding.
+
+The pipeline follows the ReXGroundingCT architecture:
+1. **Image encoder** — a pre-trained EffNet3D (the same 3D EfficientNet family as the
+   CIRCLE image encoder) that extracts 4-scale multi-resolution features from the
+   cropped/resampled CT volume.
+2. **Text encoder (offline, default = Qwen3-Embedding-4B)** — a frozen
+   Qwen3-Embedding-4B LLM that computes prompt embeddings (`text_emb` pooled
+   vector + `text_tokens` per-token last hidden state + `text_mask`) in a dedicated
+   pre-processing step. Text embeddings are *never* trained alongside the
+   segmentation model; they are produced once and reused.
+3. **Text-guided decoder head** — a 3D U-Net-style decoder with text-conditioned 
+   visual attention that fuses visual and linguistic features to predict a single
+   binary prompt mask.
+
+Training supervision: binary cross-entropy (`BCEWithLogitsLoss`) + Dice loss,
+combined as `0.5 × BCE + 0.5 × Dice`. Text encoder weights are permanently
+frozen; only the image encoder (optional: can be fully trained or fine-tuned) and
+the text-guided decoder head are updated.
+
+#### 10.1 Data Structure
+
+Prompt-Seg expects five inputs. The last two (text embeddings + masks) are produced
+once by the pre-processing step described in §10.2, before training or inference is
+ever launched.
+
+```text
+/path/to/data_root/
+├── image/
+│   ├── case_001.nii.gz
+│   ├── case_002.nii.gz
+│   └── ...
+├── segmentations_split/                    (per-finding GT masks, one per prompt)
+│   ├── case_001_0.nii.gz                   ({image_name}_{finding_idx}.nii.gz)
+│   ├── case_001_1.nii.gz
+│   ├── case_002_0.nii.gz
+│   └── ...
+├── text_emb_4b/                            (pre-computed prompt embeddings, §10.2)
+│   ├── case_001_0.pt                       ({image_name}_{finding_idx}.pt)
+│   ├── case_001_1.pt
+│   ├── case_002_0.pt
+│   └── ...
+├── lung_center.csv
+└── MICCAI_challenge_dataset.json
+```
+
+Each file's role:
+
+| **File** | **Format / Description** |
+|----------|--------------------------|
+| `image/*.nii.gz` | Raw non-contrast CT volumes in NIfTI (any spacing/orientation). |
+| `segmentations_split/*_<idx>.nii.gz` | Per-finding binary GT masks. `<idx>` matches the corresponding key under `findings` in the dataset JSON. Each mask must be spatially aligned with its source CT. |
+| `text_emb_4b/*_<idx>.pt` | **Pre-computed** prompt embeddings written by `train/precompute_text_embeddings.py`. Each `.pt` is a 3-key dict: <br>• `text_emb` `(D,)` pooled global vector, `D = 2560` for Qwen3-4B, `D = 1024` for Qwen3-0.6B.<br>• `text_tokens` `(L, D)` per-token last hidden state.<br>• `text_mask` `(L,)` attention mask (`1 = valid`, `0 = pad`). |
+| `lung_center.csv` | Crop-centre lookup CSV. 4 columns: `image_name, lung_center_world_x, lung_center_world_y, lung_center_world_z`. Same format as `CIRCLE-ZS20K/label/lung_center.csv`. |
+| `MICCAI_challenge_dataset.json` | Split manifest mapping each case name → dict of prompt findings. Schema: |
+
+```json
+{
+  "train": [
+    {
+      "name": "case_001.nii.gz",
+      "findings": {
+        "0": "pulmonary nodule in right upper lobe measuring 1.2 cm",
+        "1": "focal consolidation in left lower lobe"
+      }
+    }
+  ],
+  "val": [ /* same per-entry schema */ ]
+}
+```
+
+> **Consistency rule.** Every `findings[idx]` entry in the dataset JSON must have a
+> matching pair of files:
+> - GT mask at `segmentations_split/{name_without_ext}_{idx}.nii.gz`
+> - Pre-computed embed at `text_emb_4b/{name_without_ext}_{idx}.pt`
+>
+> `RexGroundingCTDataset` silently skips entries whose GT mask or embed file is
+> missing, so it is safe to run the pre-processing step on a subset of findings first.
+
+#### 10.2 Pre-processing: Pre-compute Prompt Embeddings (Offline, One-time Step)
+
+Text features are computed **once offline** with a frozen Qwen3 encoder and saved to
+`.pt` files. Doing this ahead of time means training dataloaders never load the
+heavy LLM on every rank, which dramatically reduces per-GPU memory and eliminates
+the need for distributed text-encoder orchestration.
+
+Run `train/precompute_text_embeddings.py`:
+
+```bash
+python -m train.precompute_text_embeddings \
+   --dataset_json /path/to/MICCAI_challenge_dataset.json \
+   --model_name_or_path /path/to/Qwen3-Embedding-4B/ \
+   --output_dir /path/to/text_emb_4b \
+   --gpu_id 0 \
+   --splits train val \
+   --max_seq_len 256 \
+   --batch_size 4
+```
+
+Arguments:
+- `--dataset_json`: ReXGroundingCT split manifest (schema shown in §10.1).
+- `--model_name_or_path`: **Default = Qwen3-Embedding-4B** local folder (or
+  Hugging Face repo id). The same **Qwen3-Embedding-4B** folder must also be
+  passed to `test/run_prompt_seg.py` at inference time when using runtime
+  encoding (§10.4).
+- `--output_dir`: Destination for `{name}_{idx}.pt` files. Pass this path as
+  `dataset_embed_dir` in the training config.
+- `--splits`: Optional space-separated list of split keys to encode. Default = all
+  top-level keys in the JSON.
+- `--max_seq_len`: Tokeniser truncation / padding length (default `256`). Must be
+  kept consistent between pre-processing, training, and inference.
+- `--batch_size`: Prompts per encoder forward pass.
+- `--overwrite`: Re-encode already-existing `.pt` files. Without this flag the
+  script is safely **resumable** — any existing `.pt` that already has the three
+  required keys is skipped on a subsequent run.
+
+Outputs:
+- `--output_dir` filled with one `.pt` per (case, finding) pair, covering every
+  entry requested via `--splits`. Expected total file count equals the sum over
+  splits of `sum(len(entry["findings"]) for entry in split)`.
+
+#### 10.3 Training
+
+The training entry point is `train/run_train_rex.py`. All paths are configured in
+the `# ---------- User configuration ----------` block at the top of `main()`;
+edit the local values before launching.
+
+```python
+# ---------- User configuration ----------
+
+# --- Model / training hyperparameters ---
+# text embedding feature dim.  Must match the pre-computed .pt files in
+# `dataset_embed_dir`.  2560 = Qwen3-4B last hidden; 1024 = Qwen3-0.6B.
+model_text_dim = 2560
+vision_pretrained = '/path/to/CTClip.168000.pt'
+resume_checkpoint  = '/path/to/ckpt.pt'   # or '' for scratch
+
+freeze_image_encoder = False
+results_folder       = '/path/to/ckpt_folder'
+
+batch_size           = 3
+lr                   = 3e-4
+max_grad_norm        = 1.0
+num_train_steps      = 200001
+num_workers          = 6
+save_results_every   = 1500
+save_model_every     = 500
+
+# --- Dataset paths (explicitly forwarded to RexGroundingCTDataset) ---
+dataset_center_csv   = '/path/to/lung_center.csv'
+dataset_json_path    = '/path/to/MICCAI_challenge_dataset.json'
+dataset_image_dir    = '/path/to/image/'
+dataset_mask_dir     = '/path/to/segmentations_split/'
+dataset_embed_dir    = '/path/to/text_emb_4b'
+dataset_split        = 'train'
+# ----------------------------------------
+```
+
+Then launch distributed training with 🤗 Accelerate + DeepSpeed (matches the other
+CIRCLE tasks):
+
+```bash
+accelerate launch --mixed_precision=bf16 train/run_train_rex.py
+```
+
+#### 10.4 Inference
+
+Single-image / single-prompt inference is served by `test/run_prompt_seg.py`. One
+CLI call → exactly one binary prompt mask written to disk.
+
+```bash
+python -m test.run_prompt_seg \
+   --gpu_id 0 \
+   --model_path /path/to/VisionEncoder.6000.pt \
+   --image_path /path/to/case_001.nii.gz \
+   --output_mask_path /path/to/outputs/case_001_prompt0.nii.gz \
+   --text_model_name_or_path /path/to/Qwen3-Embedding-4B/ \
+   --prompt_text "pulmonary nodule in right upper lobe measuring 1.2 cm" \
+   --center_csv /path/to/lung_center.csv \
+   --image_name case_001 \
+   --max_seq_len 256 \
+   --prob_threshold 0.5
+```
+
+Arguments:
+- `--gpu_id`: CUDA device ordinal.
+- `--model_path`: Checkpoint written by training (`VisionEncoder.<steps>.pt`).
+- `--image_path`: Input CT volume `.nii(.gz)`.
+- `--output_mask_path`: Destination for the single output binary mask.
+- `--text_model_name_or_path`: Same Qwen3 folder used during pre-processing
+  (`train/precompute_text_embeddings.py --model_name_or_path`). Required to build
+  embeddings at runtime.
+- `--prompt_text`: Non-empty free-text query string. See §10.1 JSON for expected
+  phrasing patterns.
+- `--center_csv`: Same lung-centre CSV used in training.
+- `--image_name`: Lookup key in `--center_csv` for this case. `.nii.gz` suffix is
+  tolerated both when present or absent.
+- `--max_seq_len`: Must match the value used in pre-processing (default `256`).
+- `--prob_threshold`: Sigmoid probability threshold applied to the sliding-window
+  probability map (default `0.5`). Valid range `(0, 1)`.
+- `--text_dim` (optional): Override for the text embedding dimension. By default
+  it is auto-detected from the runtime encoder output (recommended).
+
 ## CIRCLE-Labeler
 
 `CIRCLE-Labeler` is the report-to-label extraction module in this repository.
