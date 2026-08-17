@@ -466,3 +466,161 @@ class CIRCLEClassificationDataset(Dataset):
         image_tensor = prepare_image(image_path, lung_center)
         label_tensor = torch.tensor(label, dtype=torch.long)
         return image_tensor, label_tensor
+
+class RexGroundingCTDataset(Dataset):
+    """
+    Dataset for text-guided chest CT lesion segmentation (training).
+
+    Each sample loads a pre-cropped/resampled CT scan and a paired binary mask,
+    together with pre-computed text embeddings for the prompt describing the
+    target finding.
+
+    Returns tuple:
+        image_tensor: (1, D_crop, H_crop, W_crop) torch.FloatTensor
+        mask_tensor:  (1, D_crop, H_crop, W_crop) torch.FloatTensor (binary)
+        embed_dict:   dict with keys "text_emb", "text_tokens", "text_mask"
+                      — pre-computed text features
+
+    Args:
+        center_csv:         path to lung center CSV (image_name, lung_center_world_x/y/z).
+        dataset_json_path:  path to MICCAI_challenge_dataset.json style split file.
+        image_dir:          root directory with CT .nii.gz volumes.
+        mask_dir:           root directory containing per-finding masks (*_<idx>.nii.gz).
+        embed_dir:          root directory with pre-computed .pt text embeddings (*_<idx>.pt).
+        split:              split key to select from dataset JSON, e.g. "train" / "val".
+    """
+
+    def __init__(self, *,
+                 center_csv,
+                 dataset_json_path,
+                 image_dir,
+                 mask_dir,
+                 embed_dir,
+                 split="train"):
+        super().__init__()
+        self.image_dir = image_dir
+        self.mask_dir = mask_dir
+        self.embed_dir = embed_dir
+        self.split = split
+
+        self.center_dict = get_lung_center(center_csv)
+        self.samples = self._load_prompt_samples(dataset_json_path)
+
+        print(f'[RexGroundingCTDataset] num samples: {len(self.samples)} (split={self.split})')
+
+    def _load_prompt_samples(self, dataset_json_path):
+        with open(dataset_json_path, 'r', encoding='utf-8') as f:
+            dataset_dict = json.load(f)
+        dataset_dict = dataset_dict[self.split]
+        samples = []
+        for data in dataset_dict:
+            name = data["name"]
+            prompts = data["findings"]
+            image_path = os.path.join(self.image_dir, name)
+            if not os.path.exists(image_path):
+                continue
+            name_noext = name.replace(".nii.gz", "")
+            for finding_idx, prompt_text in prompts.items():
+                mask_path = os.path.join(self.mask_dir, f"{name_noext}_{finding_idx}.nii.gz")
+                embed_path = os.path.join(self.embed_dir, f"{name_noext}_{finding_idx}.pt")
+                if not os.path.exists(mask_path) or not os.path.exists(embed_path):
+                    continue
+                samples.append((image_path, mask_path, embed_path, name))
+        return samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    @staticmethod
+    def _prepare_image(img_path, mask_path, crop_center, augmentation=False):
+        crop_center = np.asarray(crop_center, dtype=np.float64).copy()
+
+        # Augmentation probabilities and parameters
+        rot_prob = 0
+        rot_angle_degree = 10
+
+        scale_prob = 0
+        scale_isotropic = True
+        scale_min_ratio = 0.95
+        scale_max_ratio = 1.05
+
+        shift_prob = 0
+        shift_mm = 20.0
+
+        # Normalization
+        mean = -100
+        stddev = 900
+        clip = True
+
+        # Crop parameters
+        crop_size = np.array([384, 320, 224])  # voxels
+        crop_spacing = np.array([0.65, 0.65, 1.15])  # mm
+        crop_axes = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.double)
+        crop_scale_ratio = np.array([1.0, 1.0, 1.0])
+
+        # Randomly decide whether to apply augmentations
+        rotate_flag = np.random.choice([False, True], p=[1 - rot_prob, rot_prob]) if 0 <= rot_prob <= 1 else False
+        scale_flag = np.random.choice([False, True], p=[1 - scale_prob, scale_prob]) if 0 <= scale_prob <= 1 else False
+        shift_flag = np.random.choice([False, True], p=[1 - shift_prob, shift_prob]) if 0 <= shift_prob <= 1 else False
+
+        if augmentation and (rotate_flag or scale_flag or shift_flag):
+            if rotate_flag:
+                # Random rotation around a unit sphere axis
+                rot_axis = uniform_sample_point_from_unit_sphere()
+                rot_axis = rot_axis[0]
+                angle = np.random.random() * rot_angle_degree * math.pi / 180.0
+                crop_axes = axis_angle_to_rotation_matrix(rot_axis, angle)
+            if scale_flag:
+                # Random isotropic or anisotropic scaling
+                if scale_isotropic:
+                    scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio)
+                    scale_ratio = np.array([scale_ratio] * 3)
+                else:
+                    scale_ratio = np.random.uniform(scale_min_ratio, scale_max_ratio, (3,))
+                crop_scale_ratio *= scale_ratio
+                crop_spacing = crop_spacing / crop_scale_ratio
+            if shift_flag:
+                # Random shift of crop center
+                shift = np.random.uniform(-shift_mm, shift_mm, (3,))
+                crop_center += shift
+
+        # Load image using SimpleITK
+        img = sitk.ReadImage(img_path)
+        mask = sitk.ReadImage(mask_path)
+        # Crop and resample image
+        cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
+        cropped_mask = crop_image(mask, crop_center, crop_spacing, crop_size, crop_axes)
+        # Convert to numpy array
+        cropped_img = sitk.GetArrayFromImage(cropped_img)
+        cropped_mask = sitk.GetArrayFromImage(cropped_mask)
+        # Intensity normalization
+        cropped_img = intensity_normalize(cropped_img, mean, stddev, clip)
+
+        # Convert to torch tensor and add channel dimension
+        cropped_img = torch.from_numpy(cropped_img)
+        cropped_img = torch.unsqueeze(cropped_img, 0)  # (1, D, H, W)
+        cropped_img = cropped_img.float()
+
+        cropped_mask = torch.from_numpy(cropped_mask)
+        cropped_mask[cropped_mask > 0] = 1
+        cropped_mask = torch.unsqueeze(cropped_mask, 0)  # (1, D, H, W)
+        cropped_mask = cropped_mask.float()
+        return cropped_img, cropped_mask
+
+    def __getitem__(self, index):
+        nii_file, mask_file, embed_file, name = self.samples[index]
+        crop_center = self.center_dict[name].copy()
+        shift = np.random.uniform(-50, 50, (3,))
+        crop_center += shift
+
+        video_tensor, mask_tensor = self._prepare_image(nii_file, mask_file, crop_center)
+
+        embed_dict = torch.load(embed_file)
+        # Truncate text tokens to a fixed safe length
+        embed_dict["text_tokens"] = embed_dict["text_tokens"]
+        embed_dict["text_mask"] = embed_dict["text_mask"]
+        for key in embed_dict:
+            embed_dict[key] = embed_dict[key].requires_grad_(False).squeeze(0)
+
+        return video_tensor, mask_tensor, embed_dict
+

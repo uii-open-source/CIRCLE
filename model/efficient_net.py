@@ -192,6 +192,46 @@ class EffNet3D(nn.Module):
         feature = x.view(x.size(0), -1)
         x = self.classifier(feature)
         return x, feature
+    
+    def extract_multi_scale_features(self, x):
+        """
+        Extract multi-scale spatial feature maps for segmentation decoder.
+
+        Returns a list of 4 tensors at decreasing spatial resolutions:
+            [stem (1/2),  stage_group_1 (1/4),  stage_group_2 (1/8),  deepest (1/16+) ]
+
+        The encoder has architecture:
+            stem conv (stride 2)  ->  7 sequential MBConv stage groups
+                                        (some are stride 2, some stride 1)
+        This method returns features after stem and after the 4th/6th/7th stage
+        groups so that we keep meaningful spatial size across scales.
+        """
+        cur = self.features[0](x)
+        multi_scale = [cur]
+
+        idx = 1
+        checkpoint_inds = []
+        for group_idx, (_, _, n_blocks, stride, _) in enumerate(self.cfgs):
+            idx += n_blocks
+            if stride == 2:
+                checkpoint_inds.append(idx - 1)
+
+        saved_count = 0
+        cur = x
+        for layer_idx, layer in enumerate(self.features):
+            cur = layer(cur)
+            if layer_idx in checkpoint_inds and saved_count < 3:
+                multi_scale.append(cur)
+                saved_count += 1
+
+        deepest = self.conv(cur)
+        multi_scale.append(deepest)
+
+        if len(multi_scale) > 4:
+            multi_scale = [multi_scale[0]] + multi_scale[-3:]
+        while len(multi_scale) < 4:
+            multi_scale.append(multi_scale[-1])
+        return multi_scale
 
     def _initialize_weights(self):
         """
@@ -248,6 +288,46 @@ class EffNet3DCls(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten to (B, feature_dim)
         x = self.multi_class_head(x)
         return x
+
+    def extract_multi_scale_features(self, x):
+        """
+        Extract multi-scale spatial feature maps for segmentation decoder.
+
+        Returns a list of 4 tensors at decreasing spatial resolutions:
+            [stem (1/2),  stage_group_1 (1/4),  stage_group_2 (1/8),  deepest (1/16+) ]
+
+        The encoder has architecture:
+            stem conv (stride 2)  ->  7 sequential MBConv stage groups
+                                      (some are stride 2, some stride 1)
+        This method returns features after stem and after the 4th/6th/7th stage
+        groups so that we keep meaningful spatial size across scales.
+        """
+        cur = self.features[0](x)
+        multi_scale = [cur]
+
+        idx = 1
+        checkpoint_inds = []
+        for group_idx, (_, _, n_blocks, stride, _) in enumerate(self.cfgs):
+            idx += n_blocks
+            if stride == 2:
+                checkpoint_inds.append(idx - 1)
+
+        saved_count = 0
+        cur = x
+        for layer_idx, layer in enumerate(self.features):
+            cur = layer(cur)
+            if layer_idx in checkpoint_inds and saved_count < 3:
+                multi_scale.append(cur)
+                saved_count += 1
+
+        deepest = self.conv(cur)
+        multi_scale.append(deepest)
+
+        if len(multi_scale) > 4:
+            multi_scale = [multi_scale[0]] + multi_scale[-3:]
+        while len(multi_scale) < 4:
+            multi_scale.append(multi_scale[-1])
+        return multi_scale
 
     def _initialize_weights(self):
         for m in self.modules():
