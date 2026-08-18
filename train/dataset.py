@@ -13,7 +13,7 @@ from train.utils import axis_angle_to_rotation_matrix, uniform_sample_point_from
 # uniform_sample_point_from_unit_sphere: sample random point on a unit sphere for rotation axis
 
 
-def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
+def crop_image(image, center, spacing, crop_size, axes, default_value=-1024, interpolator=sitk.sitkLinear):
     """
     Crop a 3D image (SimpleITK Image) centered at a given point with specified size, spacing, and axes.
     Args:
@@ -23,6 +23,7 @@ def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
         crop_size: list/array of length 3, size of output crop in voxels
         axes: 3x3 rotation matrix, orientation of output crop
         default_value: value to fill outside original image (e.g., -1024 for CT)
+        interpolator: SimpleITK interpolator enum (sitk.sitkLinear for image, sitk.sitkNearestNeighbor for mask)
     Returns:
         output_image: cropped and resampled SimpleITK.Image
     """
@@ -53,7 +54,7 @@ def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
     resampler.SetOutputOrigin(origin)
     resampler.SetOutputDirection(direction)
     resampler.SetDefaultPixelValue(float(default_value))
-    resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetInterpolator(interpolator)
     resampler.SetTransform(sitk.Transform())  # identity transform
 
     # Execute resampling and return cropped image
@@ -589,7 +590,8 @@ class RexGroundingCTDataset(Dataset):
         mask = sitk.ReadImage(mask_path)
         # Crop and resample image
         cropped_img = crop_image(img, crop_center, crop_spacing, crop_size, crop_axes)
-        cropped_mask = crop_image(mask, crop_center, crop_spacing, crop_size, crop_axes)
+        cropped_mask = crop_image(mask, crop_center, crop_spacing, crop_size, crop_axes, 
+                                  default_value=0, interpolator=sitk.sitkNearestNeighbor)
         # Convert to numpy array
         cropped_img = sitk.GetArrayFromImage(cropped_img)
         cropped_mask = sitk.GetArrayFromImage(cropped_mask)

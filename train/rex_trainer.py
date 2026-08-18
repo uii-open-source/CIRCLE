@@ -154,32 +154,33 @@ class RexSegTrainer(nn.Module):
             collate_fn=custom_collate_fn
         )
 
-        self.dl_iter = cycle(self.dl)
         self.device = self.accelerator.device
 
         self.seg_model.to(self.device)
 
         self.optim = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, seg_model.parameters()),
+            filter(lambda p: p.requires_grad, self.seg_model.parameters()),
             lr=lr
         )
         self.scheduler = get_cosine_schedule_with_warmup(
             self.optim,
-            num_warmup_steps=100 * 8,
-            num_training_steps=15000 * 8,
+            num_warmup_steps=100 * self.accelerator.num_processes,
+            num_training_steps=15000 * self.accelerator.num_processes,
         )
 
         (
-            self.dl_iter,
+            self.dl,
             self.seg_model,
             self.optim,
             self.scheduler
         ) = self.accelerator.prepare(
-            self.dl_iter,
+            self.dl,
             self.seg_model,
             self.optim,
             self.scheduler
         )
+        
+        self.dl_iter = cycle(self.dl)
 
         self.save_model_every = save_model_every
         self.save_results_every = save_results_every

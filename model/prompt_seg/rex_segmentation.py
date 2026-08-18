@@ -15,7 +15,6 @@ class RexGroundingCTSeg(nn.Module):
             E.g. 2560 for Qwen3 4B last hidden.
         llm_hidden_size: kept for backward compatibility / EffNet3D API
             (unused for the segmentation path).
-        encoder_cfgs: the stage config for EffNet3D (7 stages, XL by default).
         num_classes_cls: classifier dim kept so pre-trained classifier weights
             load cleanly; classifier is not used for segmentation.
         vision_pretrained: optional path to pre-trained vision encoder weights.
@@ -24,7 +23,6 @@ class RexGroundingCTSeg(nn.Module):
     def __init__(self,
                  text_dim: int = 2560,
                  llm_hidden_size: int = 1024,
-                 encoder_cfgs=None,
                  num_classes_cls: int = 37,
                  vision_pretrained=None,):
         super().__init__()
