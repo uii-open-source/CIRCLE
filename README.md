@@ -1052,6 +1052,12 @@ Default behavior:
 - Model output: the model should emit Chinese label names in `zh` mode or English label names in `en` mode.
 - Output CSV (`output_csv`): contains `report`, `label`, and the same 37 English-named binary label columns in both modes.
 
+## Citation
+
+If you use any part of our models or source code in your research or work, please cite the CIRCLE paper.
+
+The paper is currently under submission. The full citation information and BibTeX entry will be added here once they become publicly available. 
+
 ## License
 All components of CIRCLE, including the released models and datasets, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 This licensing framework allows free use of our work for non-commercial research purposes, while ensuring that:
