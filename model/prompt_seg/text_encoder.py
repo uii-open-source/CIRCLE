@@ -16,7 +16,7 @@ class Qwen3TextEncoder(nn.Module):
                 and (batch_size, seq_len, hidden_size) — per-token embedding
     """
 
-    def __init__(self, model_name_or_path: str = "Qwen/Qwen3-0.5B",
+    def __init__(self, model_name_or_path: str = "Qwen/Qwen3-Embedding-4B",
                  freeze: bool = True,
                  max_seq_len: int = 256,
                  use_hf_token: bool = False):

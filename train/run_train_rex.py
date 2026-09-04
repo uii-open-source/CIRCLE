@@ -21,9 +21,9 @@ def main():
 
     # --- Model / training hyperparameters ---
     # text embedding feature dim.  Must match the pre-computed .pt files in
-    # `dataset_embed_dir`.  2560 = Qwen3-4B last hidden.
+    # `dataset_embed_dir`.  2560 = Qwen3-Embedding-4B last hidden.
     model_text_dim = 2560
-    vision_pretrained = '/path/to/CTClip.168000.pt'
+    vision_pretrained = '/path/to/vision_encoder.bin'  # CIRCLE image encoder
     resume_checkpoint = ''
 
     freeze_image_encoder = False
