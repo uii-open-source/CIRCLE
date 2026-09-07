@@ -6,7 +6,7 @@
 <p>
 
 <p align="center">
-        🔥 <a href="https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS20K">CIRCLE Dataset</a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/uii-open-source/CIRCLE">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
+        🔥 <a href="https://huggingface.co/datasets/zhongshan-rad-fudan/CIRCLE-ZS20K">CIRCLE Dataset</a>&nbsp&nbsp | &nbsp&nbsp🤗 <a href="https://huggingface.co/uii-open-source/CIRCLE">CIRCLE Model</a>&nbsp&nbsp | &nbsp&nbsp📑 Paper is coming</a>&nbsp&nbsp
 </p>
 
 ## Introduction
@@ -27,7 +27,7 @@ Developed through a collaboration between 15 Chinese hospitals and United Imagin
 </p>
 
 ## News
-* 2025.10.11: We have released the [**CIRCLE model**](https://huggingface.co/uii-open-source/CIRCLE) (Both image and text encoder) and the partial data [**CIRCLE Dataset**](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS20K). Enjoy it!
+* 2025.10.11: We have released the [**CIRCLE model**](https://huggingface.co/uii-open-source/CIRCLE) (Both image and text encoder) and the partial data [**CIRCLE Dataset**](https://huggingface.co/datasets/zhongshan-rad-fudan/CIRCLE-ZS20K). Enjoy it!
 * 2025.9.28: We have released the official PyTorch implementation for the CIRCLE foundation model.
 * 2025.7.28: We introduce the CIRCLE model to the world. The CIRCLE model made its debut at [**the 8th World Artificial Intelligence Conference (WAIC 2025, Shanghai)**](https://wallstreetcn.com/articles/3751978), where it was recognized for its strong generalization, diagnostic accuracy, and potential to enhance human–AI collaboration in CT interpretation.
 
@@ -47,7 +47,7 @@ The following hardware configuration is recommended for running the open-source 
 The system is Ubuntu 22.04 LTS, with NVIDIA driver version 535.154.05 and CUDA version 12.2 installed.
 
 ## <span id="Dataset">Dataset</span>
-To facilitate future research and promote community progress in CT foundation modeling, we will make part of our CT image–report paired dataset publicly available. We randomly select 20,000 cases from our internal validation set for open release, including both images and their corresponding reports (CIRCLE-ZS20K dataset), which can be publicly accessed via 🤗 [Hugging Face](https://huggingface.co/datasets/uii-open-source/CIRCLE-ZS20K). 
+To facilitate future research and promote community progress in CT foundation modeling, we will make part of our CT image–report paired dataset publicly available. We randomly select 20,000 cases from our internal validation set for open release, including both images and their corresponding reports (CIRCLE-ZS20K dataset), which can be publicly accessed via 🤗 [Hugging Face](https://huggingface.co/datasets/zhongshan-rad-fudan/CIRCLE-ZS20K). 
 
 The CIRCLE-ZS20K dataset is an example dataset associated with a related publication currently under submission. We plan to release a larger-scale version in the future, contingent upon obtaining additional ethical approvals and administrative permissions.
 
@@ -1059,7 +1059,7 @@ If you use any part of our models or source code in your research or work, pleas
 The paper is currently under submission. The full citation information and BibTeX entry will be added here once they become publicly available.
 
 ## License
-All components of CIRCLE, including the released models and datasets, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+All components of CIRCLE, including the released models, are made available under the [Creative Commons Attribution–NonCommercial–ShareAlike (CC-BY-NC-SA) license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 This licensing framework allows free use of our work for non-commercial research purposes, while ensuring that:
 - Proper attribution is given to the original work.
 - Any modifications or derivative works are distributed under the same license terms.
