@@ -50,6 +50,8 @@ def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
     Returns:
         output_image: cropped and resampled SimpleITK.Image
     """
+    image = sitk.Cast(image, sitk.sitkFloat32)
+
     direction = []
     # Flatten 3x3 axes matrix to 1D direction vector for SimpleITK
     for row in range(3):
@@ -59,7 +61,7 @@ def crop_image(image, center, spacing, crop_size, axes, default_value=-1024):
     # Compute origin of the crop in world coordinates
     offset = [0.0, 0.0, 0.0]
     for dim in range(3):
-        half_len = (crop_size[dim] - 1) * spacing[dim] / 2.0
+        half_len = crop_size[dim] * spacing[dim] / 2.0
         for axis in range(3):
             offset[axis] += half_len * axes[dim][axis]
     origin = [float(center[i] - offset[i]) for i in range(3)]

@@ -167,26 +167,25 @@ class CIRCLETrainer(nn.Module):
             shuffle=True,
         )
 
-        # prepare infinite iterator over the dataloader (so train_step can call next() directly)
-        self.dl_iter = cycle(self.dl)
-
         # get device from accelerator (handles CPU / single-GPU / multi-GPU placement)
         self.device = self.accelerator.device
 
         # move model to device (Accelerator will handle further distribution/wrapping)
         self.circle.to(self.device)
 
-        # call accelerator.prepare to properly wrap/prepare the iterator, model, and optimizer
-        # after this, objects are replaced by device/distributed-safe versions
+        # Prepare the DataLoader so Accelerate can shard batches across processes.
         (
-            self.dl_iter,
+            self.dl,
             self.circle,
             self.optim,
         ) = self.accelerator.prepare(
-            self.dl_iter,
+            self.dl,
             self.circle,
             self.optim,
         )
+
+        # Cycle over the prepared DataLoader to preserve distributed sharding.
+        self.dl_iter = cycle(self.dl)
 
         # saving configuration
         self.save_model_every = save_model_every

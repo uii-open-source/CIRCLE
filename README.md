@@ -181,13 +181,13 @@ Before training `train/train_circle.py`, prepare:
    After downloading model/data, update local paths in `train/train_circle.py` as follows:
 
 ```python
-# Initialize the BERT tokenizer and model from a pre-trained model path
-tokenizer = BertTokenizer.from_pretrained('/path/to/circle/text_model/nlp_roberta_backbone_base_std')
-text_encoder = BertModel.from_pretrained("/path/to/circle/text_model/nlp_roberta_backbone_base_std")
+# Initialize the tokenizer and model from a pre-trained model path
+tokenizer = AutoTokenizer.from_pretrained('/path/to/circle/text_model/nlp_roberta_backbone_base_std')
+text_encoder = AutoModel.from_pretrained("/path/to/circle/text_model/nlp_roberta_backbone_base_std")
 
 trainer = CIRCLETrainer(
     circle_model,                                     # the CIRCLE model instance
-    tokenizer,                                        # tokenizer for processing text inputs
+    tokenizer=tokenizer,                              # tokenizer for processing text inputs
     data_folder='/path/to/image',                     # folder containing all patient CT data
     label_csv='/path/to/label/label.csv',             # CSV file mapping image names to labels
     lung_center_csv='/path/to/label/lung_center.csv', # CSV file with lung center coordinates for cropping
@@ -210,7 +210,7 @@ If you use your own dataset, please keep the same directory layout and CSV field
 Use the following command to start training.
 
 ```bash
-accelerate launch --use_fsdp --mixed_precision=bf16 train/train_circle.py
+accelerate launch --use_fsdp train/train_circle.py
 ```
 Based on our training experience, using our hardware configuration, training the model on approximately 400,000 samples takes ～ 72 hours.
 
